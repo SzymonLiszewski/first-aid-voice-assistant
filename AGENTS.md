@@ -23,6 +23,7 @@ With `DEV_MODE=true` the app serves a test page at `/dev` and `POST /dev/chat` (
 - `app/providers/` – interfaces (`base.py`), registry (`registry.py`), adapters in `asr/ llm/ embeddings/ tts/`
 - `app/rag/` – `Retriever` + `NullRetriever`
 - `configs/` – `base.yaml`, `experiments/`; `prompts/` – system prompts
+- `mobile/` – Flutter client (not started yet)
 - `eval/` – evaluation datasets and results; `tests/unit`, `tests/contract`
 
 ## Commands

@@ -50,4 +50,8 @@ Checks: `curl localhost:8000/health`, `curl localhost:8000/v1/providers`. Tests:
 
 Model setup lives in `configs/base.yaml` (pick another file with `APP_CONFIG`); secrets live in `.env`. Experiments go in `configs/experiments/`. The system prompt is `prompts/system_v1.md`.
 
+## Mobile app
+
+The mobile client (Flutter) will live in `mobile/`, next to the backend. It is not started yet. To reach the backend from an Android emulator use `http://10.0.2.2:8000`; from a physical phone use the computer's LAN address.
+
 Working rules for code and agents: `AGENTS.md`.
