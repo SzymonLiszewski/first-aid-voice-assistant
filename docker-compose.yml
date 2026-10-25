@@ -1,0 +1,55 @@
+services:
+  app:                         # FastAPI + uvicorn
+    build: .
+    image: voice-assistant
+    ports: ["8000:8000"]
+    env_file:
+      - path: .env             # optional: the stack runs without it
+        required: false
+    environment:
+      APP_CONFIG: ${APP_CONFIG:-configs/base.yaml}
+      DEV_MODE: ${DEV_MODE:-true}   # serves /dev; set DEV_MODE=false outside local development
+    volumes:
+      - ./configs:/app/configs
+      - ./prompts:/app/prompts
+    depends_on:
+      redis: { condition: service_started }
+      llm-pull: { condition: service_completed_successfully }   # start once the model is ready
+
+  redis:                       # sessions; in-memory store is enough at first
+    image: redis:7-alpine
+
+  llm:                         # local model server; on GPU/production consider vllm/vllm-openai
+    image: ollama/ollama       # TODO: pin version
+    ports: ["11434:11434"]     # lets a locally run app (configs/local.yaml) reach it
+    volumes: [ollama_models:/root/.ollama]
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  llm-pull:                    # one-shot: pulls the model named in the config (cached in the volume)
+    build: .
+    image: voice-assistant     # same image as `app`
+    command: ["python", "-m", "app.tools.pull_model"]
+    environment:
+      APP_CONFIG: ${APP_CONFIG:-configs/base.yaml}
+    volumes:
+      - ./configs:/app/configs
+    depends_on:
+      llm: { condition: service_healthy }
+    restart: "no"
+
+  asr:                         # faster-whisper server with an OpenAI-compatible API
+    image: ghcr.io/speaches-ai/speaches:latest-cpu   # TODO: verify image and pin version
+    profiles: [local-asr]
+
+  qdrant:                      # only with RAG: --profile rag
+    image: qdrant/qdrant       # TODO: pin version
+    volumes: [qdrant_data:/qdrant/storage]
+    profiles: [rag]
+
+volumes:
+  qdrant_data: {}
+  ollama_models: {}

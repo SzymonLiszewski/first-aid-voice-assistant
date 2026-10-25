@@ -1,0 +1,11 @@
+# For running the app outside Docker (uv run uvicorn ...) against the Ollama container,
+# which publishes port 11434 on the host.
+asr:
+  provider: openai_compat
+  params: { base_url: "http://localhost:8001/v1", model: large-v3, language: pl }
+  hotwords_file: configs/domain_terms.txt
+llm:
+  provider: litellm
+  params: { model: "ollama_chat/gemma3:1b", api_base: "http://localhost:11434", temperature: 0.3 }
+rag: { enabled: false }
+prompts: { system: prompts/system_v1.md }

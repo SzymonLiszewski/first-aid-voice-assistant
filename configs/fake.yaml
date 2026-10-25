@@ -1,0 +1,9 @@
+# No model needed: FakeLLM echoes the input. Handy for UI work and tests.
+asr:
+  provider: openai_compat
+  params: { base_url: "http://asr:8000/v1", model: large-v3, language: pl }
+llm:
+  provider: fake
+  params: {}
+rag: { enabled: false }
+prompts: { system: prompts/system_v1.md }

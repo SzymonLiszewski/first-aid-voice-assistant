@@ -1,0 +1,1 @@
+# Domain terms, one per line (Polish is fine here). Used as ASR hotwords.

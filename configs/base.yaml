@@ -1,0 +1,9 @@
+asr:
+  provider: openai_compat          # or faster_whisper_local, deepgram
+  params: { base_url: "http://asr:8000/v1", model: large-v3, language: pl }
+  hotwords_file: configs/domain_terms.txt
+llm:
+  provider: litellm
+  params: { model: "ollama_chat/gemma3:1b", api_base: "http://llm:11434", temperature: 0.3 }
+rag: { enabled: false }            # plain models for now
+prompts: { system: prompts/system_v1.md }

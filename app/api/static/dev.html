@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Voice assistant – dev client</title>
+<style>
+  body { font-family: system-ui, sans-serif; max-width: 720px; margin: 2rem auto; padding: 0 1rem; }
+  .warn { background: #fff3cd; border: 1px solid #e0c36a; padding: .6rem .8rem; border-radius: 6px; }
+  textarea { width: 100%; box-sizing: border-box; height: 5rem; margin-top: 1rem; font: inherit; }
+  button { margin: .5rem 0; padding: .4rem .9rem; }
+  #out { white-space: pre-wrap; border: 1px solid #ccc; border-radius: 6px; padding: .8rem; min-height: 6rem; }
+  .err { color: #b00020; } .meta { color: #777; font-size: .85rem; }
+</style>
+</head>
+<body>
+<h1>Dev client</h1>
+<p class="warn">Prototype for testing only, not medically validated. In a real emergency call 112 (ambulance: 999).</p>
+<textarea id="input" placeholder="Paste a transcript, e.g. „Mój kolega nie oddycha, co mam robić?”"></textarea>
+<div><button id="send">Send</button></div>
+<div id="out"></div>
+<div id="meta" class="meta"></div>
+
+<script>
+const input = document.getElementById("input");
+const out = document.getElementById("out");
+const meta = document.getElementById("meta");
+const sendBtn = document.getElementById("send");
+
+async function send() {
+  const text = input.value.trim();
+  if (!text) return;
+  sendBtn.disabled = true;
+  out.className = "";
+  out.textContent = "…";
+  meta.textContent = "";
+  try {
+    const r = await fetch("/dev/chat", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text }),
+    });
+    if (!r.ok) throw new Error(`${r.status}`);
+    const data = await r.json();
+    out.textContent = data.answer;
+    meta.textContent = `${data.elapsed_ms} ms`;
+  } catch (e) {
+    out.className = "err";
+    out.textContent = `Error (${e.message}). If this is an emergency, call 112 now.`;
+  } finally {
+    sendBtn.disabled = false;
+  }
+}
+
+sendBtn.onclick = send;
+input.addEventListener("keydown", (e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); } });
+</script>
+</body>
+</html>
