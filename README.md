@@ -13,6 +13,40 @@ Backend of a **voice assistant for emergencies and first aid**: a bystander talk
 - No audio/ASR yet, and no conversation history: each request is a single, independent turn.
 - RAG is disabled (`rag.enabled: false`); Qdrant sits behind the `rag` profile.
 
+## Project structure
+
+```
+voice-assistant/
+├── app/                      # backend (FastAPI)
+│   ├── main.py               # app factory, wiring
+│   ├── api/                  # REST endpoints, dev-only test endpoint and page (static/)
+│   ├── core/                 # config loading (env + YAML)
+│   ├── pipeline/             # prompt building
+│   ├── providers/            # model adapters
+│   │   ├── base.py           # provider interfaces
+│   │   ├── registry.py       # provider name from config -> class
+│   │   ├── llm/              # LiteLLM adapter, fake LLM for tests
+│   │   └── asr/ tts/ embeddings/   # empty for now
+│   ├── rag/                  # empty for now
+│   └── tools/                # helper commands (e.g. pulling the Ollama model)
+├── configs/                  # base.yaml, fake.yaml, local.yaml, experiments/, domain_terms.txt
+├── prompts/                  # system prompts (versioned files)
+├── mobile/                   # Flutter client
+├── eval/                     # evaluation datasets and results (empty for now)
+├── knowledge/                # raw documents for the knowledge base (empty for now)
+├── scripts/                  # chat_client.py (terminal test client)
+├── tests/                    # unit/ and contract/ (same tests for every provider)
+├── docs/adr/                 # short architecture decision records
+├── .claude/skills/           # agent skill templates (to be finished)
+├── docker-compose.yml        # app, redis, Ollama (+ model pull); profiles: local-asr, rag
+├── docker-compose.gpu.yml    # GPU override
+├── Dockerfile
+├── pyproject.toml, uv.lock   # dependencies (uv)
+├── .env.example              # settings and API keys template
+├── AGENTS.md, CLAUDE.md      # rules for coding agents
+└── README.md
+```
+
 ## Requirements
 
 - Python 3.12+, [uv](https://docs.astral.sh/uv/)
