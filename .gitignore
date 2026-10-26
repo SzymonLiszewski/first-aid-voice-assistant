@@ -1,11 +1,33 @@
+# Secrets
+.env
+
+# Python
 .venv/
 __pycache__/
 *.pyc
 .mypy_cache/
 .ruff_cache/
 .pytest_cache/
-.env
+
+# Model weights (download them, never commit)
+*.gguf
+*.bin
+
+# Evaluation recordings and reference logs (personal data – GDPR)
 eval/datasets/*
 !eval/datasets/.gitkeep
-knowledge/*
-!knowledge/.gitkeep
+
+# Raw knowledge-base documents (licences may forbid redistribution)
+knowledge/raw/*
+!knowledge/raw/.gitkeep
+
+# Flutter / Dart (poc/mobile, apps/mobile)
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+build/
+
+# Editors and OS
+.idea/
+.DS_Store
+Thumbs.db

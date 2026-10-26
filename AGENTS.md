@@ -1,57 +1,45 @@
-# Voice assistant – agent instructions
+# First-aid voice assistant – project-wide rules
 
-Voice assistant backend (ASR → LLM, with RAG as a disabled, optional stage). A modular monolith (FastAPI) plus open-source models in separate containers (Ollama/vLLM, faster-whisper server) or commercial APIs behind the same provider interfaces. For now there is no audio/ASR layer: the only way to talk to the model is the dev-only test endpoint `POST /dev/chat` (transcript in, answer out).
+These rules apply to the whole repository, for people and coding agents alike. Each part has its own `AGENTS.md` with the rules specific to it:
+
+- `poc/server/AGENTS.md` – test server (Python, FastAPI)
+- `poc/mobile/AGENTS.md` – demo mobile app (Flutter)
+
+Read the `AGENTS.md` of the part you are changing before you start.
+
+## Project
+
+A voice assistant for emergencies and first aid. It listens to the person giving help (a paramedic or a layperson), recognises the rescue actions they perform, records them with timestamps in an event log and prompts the next steps according to prepared scenarios. It is a master's thesis project and a research prototype, not a medical device.
+
+Overview, requirements and architecture: `docs/project/`.
+
 ## Domain and safety
 
-The assistant is for **emergencies and first aid**: a stressed bystander talks to it by voice and it guides them step by step. It is a research prototype, not a medical device, and its answers are not medically validated.
-
-- The system prompt (`prompts/system_v1.md`) carries the safety rules: tell the user to call 112 (ambulance 999 in Poland) first, safety of the rescuer first, no diagnoses, no drug dosing, never invent procedures, one short instruction at a time. Do not weaken or remove these rules; any prompt change must be re-checked against them (and, ideally, reviewed by a medical professional).
-- Every client must show a "call 112" fallback when the backend is unreachable or returns an `error` event. The assistant must never be the only way to get help.
-- Medical facts should eventually come from vetted sources via RAG, not from the model's memory.
+- The assistant must never be the only way to get help: every client shows a "call 112" fallback when the backend is unreachable or returns an error.
+- Safety rules live in the system prompts (call 112 first, rescuer safety first, no diagnoses, no drug dosing, never invent procedures, one short instruction at a time). Do not weaken or remove them; any prompt change must be re-checked against them and, ideally, reviewed by a medical professional.
+- The assistant suggests only steps that exist in the knowledge base (`knowledge/`). Medical facts must come from vetted sources, not from the model's memory.
+- The model must not simply agree with the user: it checks what the user says against the scenario and corrects it when needed.
 - Prefer failing loudly over guessing: an honest "I don't know, call 112" beats a confident wrong answer.
 
-Status: the LLM can be tested with ready-made transcripts (LiteLLM + fake providers, stateless single turns). Not yet: ASR/audio, conversation history, sessions, streaming transport.
+## Repository layout
 
-## Dev client
-
-With `DEV_MODE=true` the app serves a test page at `/dev` and `POST /dev/chat` (`{"text": "..."}` → `{"answer", "elapsed_ms"}`); `scripts/chat_client.py` is the terminal equivalent. The endpoint is stateless and has no auth, so it must stay dev-only.
-
-## Directory map
-
-- `app/api/` – REST + dev test endpoint/page; `app/core/` – config, logging
-- `app/pipeline/` – prompt building (orchestration comes later)
-- `app/providers/` – interfaces (`base.py`), registry (`registry.py`), adapters in `asr/ llm/ embeddings/ tts/`
-- `app/rag/` – `Retriever` + `NullRetriever`
-- `configs/` – `base.yaml`, `experiments/`; `prompts/` – system prompts
-- `mobile/` – Flutter client (not started yet)
-- `eval/` – evaluation datasets and results; `tests/unit`, `tests/contract`
-
-## Commands
-
-```
-uv sync                                   # dependencies
-APP_CONFIG=configs/fake.yaml uv run uvicorn app.main:app --reload   # no model needed (PowerShell: $env:APP_CONFIG=...)
-uv run python scripts/chat_client.py "..."                         # terminal test client
-docker compose up --build                 # app + redis + Ollama (pulls the default model once)
-docker compose --profile local-asr up                              # + local ASR server
-uv run pytest
-uv run ruff check . && uv run ruff format --check .
-uv run mypy app
-```
-
-## Skills
-
-Templates in `.claude/skills/` (`add-llm-provider`, `add-asr-provider`, `swap-model`, `run-eval`, `add-knowledge-source`, `add-local-model-service`). Each is marked as a template to finish; complete them as the pieces they depend on appear.
+- `docs/` – project documentation (`project/`, `adr/`, `consultations/`)
+- `poc/` – proof of concept: `server/`, `mobile/`
+- `apps/` – target application (not started)
+- `knowledge/` – knowledge base shared by all parts
+- `eval/` – evaluation datasets, scripts and results
 
 ## Rules
 
-- Pipeline and API code never import concrete providers; new models go through the registry plus a config entry only.
-- Every provider must pass the contract tests (`tests/contract`).
-- Secrets live only in `.env` (template: `.env.example`).
-- Prompts live in `prompts/`, not in code.
-- Language: all code is written in English – identifiers, comments, docstrings, error and log messages, YAML configs and `docker-compose` comments. Only end-user-facing content (prompts in `prompts/`, the `configs/domain_terms.txt` glossary) may be in Polish; the assistant is mainly configured for Polish, but that does not change the language of the code. All documentation (`README.md`, `AGENTS.md`, `CLAUDE.md`, `docs/`) is in English as well.
-- A model change means a new config in `configs/experiments/` plus an entry in the evaluation results table.
+- **Language:** everything is in English – code, comments, commit messages, pull requests and all documentation (`README.md`, `AGENTS.md`, `CLAUDE.md`, every `docs/` folder). Only end-user-facing content (system prompts, domain glossaries) may be in Polish.
+- **Secrets** live only in `.env` files, never in code or configs; each part keeps a `.env.example`.
+- **Data:** evaluation recordings and raw source documents are not committed (`eval/datasets/`, `knowledge/raw/` are git-ignored) – they may contain personal data or be under licences that forbid redistribution.
+- **API:** the API used by the mobile app is defined by the server's Pydantic models (browse it at `/docs` of the running server). A change to it updates the mobile app in the same pull request. The event-log entry format, shared with the evaluation, is described in `docs/project/architecture.md`.
+- **Documentation:** documents in `docs/` folders carry the metadata header and revision history described in `CONTRIBUTING.md`. Update the docs of the part you change in the same pull request.
+- Git workflow (branches, commits, pull requests): `CONTRIBUTING.md`.
 
-## Definition of done
+## Skills
 
-Tests, ruff and mypy pass; an example config is added; an evaluation results entry is added if the change concerns a model.
+Project-wide skills live in `.claude/skills/`; skills of a single part live in that part's `.claude/skills/` (e.g. `poc/server/.claude/skills/`).
+
+- `consultation-note` – turns raw notes from a supervisor consultation (usually in Polish) into `docs/consultations/YYYY-MM-DD.md`: English, no third-party names, action items listed.

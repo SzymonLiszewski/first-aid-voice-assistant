@@ -2,4 +2,4 @@
 
 ## Claude Code
 
-- After editing Python files, run `uv run ruff format` and `uv run ruff check --fix` on the changed files.
+- Each part has its own `CLAUDE.md` / `AGENTS.md`; follow the one of the part you are editing (e.g. `poc/server/CLAUDE.md`).
