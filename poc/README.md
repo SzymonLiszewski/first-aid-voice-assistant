@@ -3,13 +3,13 @@
 The demo of the first-aid voice assistant. Its goal is to show the whole flow end to end as early as possible:
 
 ```
-microphone → speech detection (VAD) → Whisper (on the phone) → server → LLM → event log + voice prompt
+microphone → speech detection (VAD) → speech recognition (on the phone) → server → LLM → event log + voice prompt
 ```
 
 | Part | Description | Status |
 |---|---|---|
 | [`server/`](server) | Test server (Python, FastAPI): receives transcripts, calls the LLM, returns the answer. | working (dev endpoint) |
-| [`mobile/`](mobile) | Demo mobile app (Flutter): start screen and a test conversation – speech recognised on the phone, answer from the server, read aloud. | start screen and on-device speech recognition |
+| [`mobile/`](mobile) | Demo mobile app (Flutter): start screen and a test conversation – speech recognised on the phone, answer from the server, read aloud. | start screen and on-device speech recognition (three engines to compare) |
 
 The PoC is a place for fast experiments. Code that proves itself here is later moved (or rewritten) into the target application in [`../apps`](../apps).
 

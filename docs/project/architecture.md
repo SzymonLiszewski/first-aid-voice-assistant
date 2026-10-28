@@ -3,13 +3,13 @@
 | | |
 |---|---|
 | **Created** | 2026-10-26 |
-| **Version** | 0.1 |
+| **Version** | 0.2 |
 
 ## Overview
 
 ```
 ┌──────────────────────── PHONE ────────────────────────┐        ┌──────────── SERVER ────────────┐
-│ microphone → VAD → ASR (Whisper, on device)           │        │ API → prompt → LLM provider ──▶ LLM (local container
+│ microphone → VAD → ASR (on device)                    │        │ API → prompt → LLM provider ──▶ LLM (local container
 │        │                                              │ request│        ▲                       │      or cloud API)
 │        └──▶ transcript + end-of-utterance time ───────┼───────▶│        └── knowledge base       │
 │                                                       │        │            (rules, scenarios)  │
@@ -21,7 +21,7 @@
 | Component | Where | Role | Implementation |
 |---|---|---|---|
 | Audio capture + VAD | phone | Continuous listening, splitting speech into utterances | `poc/mobile` (planned) |
-| ASR | phone | Speech to text, works offline | Whisper via whisper.cpp (planned) |
+| ASR | phone | Speech to text, works offline | compared in the PoC app: Parakeet (sherpa-onnx), Vosk, Whisper (whisper.cpp); choice after measurements on phones |
 | API | server | Request and response formats between the phone and the server | FastAPI / Pydantic models in `poc/server`, browsable at `/docs` |
 | Server | server | Builds the prompt, calls the LLM, returns recognised actions and the next step | `poc/server` (FastAPI) |
 | LLM | container or cloud | Recognises actions, chooses the next step from the scenario | LiteLLM adapter: Ollama, vLLM or commercial APIs |
@@ -70,3 +70,4 @@ In the current PoC the LLM runs on the server, so the offline mode is a later st
 | Version | Date | Changes |
 |---|---|---|
 | 0.1 | 2026-10-26 | First version, based on the system concept document and the PoC |
+| 0.2 | 2026-10-29 | ASR: three on-device engines compared in the PoC app instead of Whisper only |

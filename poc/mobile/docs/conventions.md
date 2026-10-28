@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | **Created** | 2026-10-26 |
-| **Version** | 0.2 |
+| **Version** | 0.3 |
 
 > Based on the official [Flutter architecture guide](https://docs.flutter.dev/app-architecture/case-study): MVVM with a UI layer (views + view models), a data layer (repositories + services) and a domain layer (models).
 
@@ -25,27 +25,27 @@ The UI layer is organised by feature; the data and domain layers by type, becaus
 ```
 lib/
 ├── main.dart                 # entry point: creates the dependencies, runs the app
-├── config/                   # dependencies.dart – builds the real services (fakes in tests)
+├── config/                   # dependencies.dart – builds the real services for the chosen engine (fakes in tests)
 ├── routing/                  # router.dart – route names and which screen each one opens
-├── utils/                    # small shared helpers (format.dart – times in Polish format)
+├── utils/                    # small shared helpers (times in Polish format, transcript clean-up, PCM conversion)
 ├── ui/                       # UI layer – feature-first
 │   ├── core/                 #   app.dart (root widget), themes/, ui/ (shared widgets, demo banner)
 │   └── <feature>/            #   start/, conversation/, settings/
 │       ├── view_models/      #     state and logic of the screen (ChangeNotifier)
 │       └── widgets/          #     <feature>_screen.dart and its widgets
 ├── data/                     # data layer – shared by features
-│   ├── services/             #   wrap the outside world: microphone, Whisper, phone storage
-│   ├── repositories/         #   source of truth exposed to view models (settings)
+│   ├── services/             #   wrap the outside world: microphone, speech libraries, downloads, phone storage
+│   ├── repositories/         #   logic exposed to view models (speech input, settings)
 │   └── model/                #   API models (for the server connection)
 └── domain/
-    └── models/               # app data types (Utterance, AsrModel)
+    └── models/               # app data types (Utterance, SpeechEngine)
 test/                         # tests mirroring lib/ (ui/, data/, utils/); fakes/ – fake services shared by the tests
 ```
 
 - **View** (`*_screen.dart`) only draws and passes user actions to its view model.
 - **View model** (`*_view_model.dart`) holds the state of one screen and calls repositories or services; it never imports Flutter widgets.
 - **Service** wraps one outside thing (a plugin, the network, storage) behind an interface, so tests can use fakes.
-- **Repository** is the source of truth for some data and the place where several services are combined.
+- **Repository** is the source of truth for some data and the place where several services are combined. Note: this is roughly the reverse of Spring-style backend naming, where the service holds the logic and the repository accesses the data.
 - Folders without code yet keep a `.gitkeep`.
 
 ## Dart style
@@ -72,3 +72,4 @@ test/                         # tests mirroring lib/ (ui/, data/, utils/); fakes
 |---|---|---|
 | 0.1 | 2026-10-26 | Proposed conventions |
 | 0.2 | 2026-10-27 | Structure aligned with the official Flutter architecture guide |
+| 0.3 | 2026-10-29 | Structure updated for the speech engines; note on service and repository naming |
