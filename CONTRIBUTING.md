@@ -7,7 +7,7 @@ Everything in this repository is written in English: code, comments, commit mess
 ## Branches
 
 - `main` is always in a working state. Nobody pushes to it directly; changes go through pull requests.
-- Create a short-lived branch per change, named `<type>/<short-description>`, for example `feature/vad-segmentation`, `fix/dev-chat-timeout`, `docs/consultation-2026-10-15`.
+- Create a short-lived branch per change, named `<type>/<short-description>`, for example `feature/vad-segmentation`, `fix/dev-chat-timeout`, `docs/event-log-format`.
 - Types: `feature`, `fix`, `docs`, `refactor`, `test`, `chore`.
 
 ## Commits

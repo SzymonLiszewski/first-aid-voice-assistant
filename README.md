@@ -25,8 +25,7 @@ first-aid-voice-assistant/
 ├── AGENTS.md, CLAUDE.md # project-wide rules for people and coding agents
 ├── docs/                # project documentation
 │   ├── project/         #   overview, requirements, architecture, glossary
-│   ├── adr/             #   architecture decision records
-│   └── consultations/   #   notes from thesis consultations
+│   └── adr/             #   architecture decision records
 ├── poc/                 # proof of concept / demo
 │   ├── server/          #   test server (Python, FastAPI) – has its own README, AGENTS.md and docs/
 │   └── mobile/          #   demo mobile app (Flutter) – has its own README, AGENTS.md and docs/
@@ -55,5 +54,4 @@ Then open http://localhost:8000/dev. Details and options without Docker: [poc/se
 - [Requirements](docs/project/requirements.md)
 - [System architecture](docs/project/architecture.md)
 - [Glossary](docs/project/glossary.md)
-- [Consultation notes](docs/consultations/README.md)
 - [How to contribute](CONTRIBUTING.md)

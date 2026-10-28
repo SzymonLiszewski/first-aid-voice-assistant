@@ -29,7 +29,7 @@ Description – only a bullet list, no headings or sections (no "What", "Why", "
 ```markdown
 - Move the existing backend to `poc/server/` (with `git mv`, history kept); server commands now run from there
 - Add `poc/mobile/` for the demo app and `apps/` for the target app
-- Add `docs/` with project documentation, ADRs and consultation notes
+- Add `docs/` with project documentation and ADRs
 ```
 
 ## Rules
