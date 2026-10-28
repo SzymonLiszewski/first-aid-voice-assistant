@@ -9,7 +9,7 @@ microphone → speech detection (VAD) → Whisper (on the phone) → server → 
 | Part | Description | Status |
 |---|---|---|
 | [`server/`](server) | Test server (Python, FastAPI): receives transcripts, calls the LLM, returns the answer. | working (dev endpoint) |
-| [`mobile/`](mobile) | Demo mobile app (Flutter): start screen, action screen with continuous listening and voice prompts, summary with the event log. | not started |
+| [`mobile/`](mobile) | Demo mobile app (Flutter): start screen and a test conversation – speech recognised on the phone, answer from the server, read aloud. | start screen and on-device speech recognition |
 
 The PoC is a place for fast experiments. Code that proves itself here is later moved (or rewritten) into the target application in [`../apps`](../apps).
 

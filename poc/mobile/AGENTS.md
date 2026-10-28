@@ -2,7 +2,7 @@
 
 Project-wide rules (language, domain and safety, data, documentation) are in the root [`AGENTS.md`](../../AGENTS.md); this file adds the rules specific to the mobile app. Run all commands from `poc/mobile/`.
 
-Status: not started. The Flutter project will be created here.
+Status: start screen and on-device speech recognition (Whisper) are implemented; the test conversation shows only the user's messages so far. Setup and commands: `README.md`, design: `docs/architecture.md`.
 
 ## Safety in this part
 

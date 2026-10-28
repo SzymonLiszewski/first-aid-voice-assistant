@@ -43,3 +43,4 @@ Overview, requirements and architecture: `docs/project/`.
 Project-wide skills live in `.claude/skills/`; skills of a single part live in that part's `.claude/skills/` (e.g. `poc/server/.claude/skills/`).
 
 - `consultation-note` – turns raw notes from a supervisor consultation (usually in Polish) into `docs/consultations/YYYY-MM-DD.md`: English, no third-party names, action items listed.
+- `pr-description` – writes a pull request title and a short bullet list of changes for a branch, in the team's style.

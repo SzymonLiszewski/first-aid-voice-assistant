@@ -11,7 +11,7 @@ The assistant is meant both for **paramedics** and for **laypeople** – bystand
 | Part | Status |
 |---|---|
 | `poc/server` – test server (FastAPI, LLM behind swappable providers) | working: the LLM can be tested with ready-made transcripts |
-| `poc/mobile` – demo mobile app (Flutter) | not started |
+| `poc/mobile` – demo mobile app (Flutter) | start screen and on-device speech recognition (Whisper) |
 | `apps/` – target application | not started |
 | `knowledge/` – knowledge base (sources, scenarios) | being collected |
 | `eval/` – evaluation (WER, event-log agreement) | not started |

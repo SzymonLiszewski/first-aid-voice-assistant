@@ -2,6 +2,12 @@
 
 One short file per decision that affects the architecture or the technology stack, named `NNNN-short-title.md` (e.g. `0001-flutter-for-mobile-app.md`). Decisions are not edited after acceptance; a changed decision gets a new record that supersedes the old one.
 
+## Records
+
+| No. | Decision | Status |
+|---|---|---|
+| [0001](0001-flutter-for-mobile-app.md) | Flutter for the mobile app | accepted |
+
 ## Template
 
 ```markdown
