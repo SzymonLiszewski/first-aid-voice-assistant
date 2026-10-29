@@ -1,12 +1,18 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:first_aid_voice_assistant/data/repositories/speech_input.dart';
+import 'package:first_aid_voice_assistant/data/repositories/speech_output.dart';
+import 'package:first_aid_voice_assistant/data/services/audio_output.dart';
+import 'package:first_aid_voice_assistant/data/services/chat_socket.dart';
 import 'package:first_aid_voice_assistant/data/services/key_value_store.dart';
 import 'package:first_aid_voice_assistant/data/services/model_store.dart';
 import 'package:first_aid_voice_assistant/data/services/segment_decoder.dart';
 import 'package:first_aid_voice_assistant/data/services/speech_segmenter.dart';
+import 'package:first_aid_voice_assistant/data/services/speech_synthesizer.dart';
 import 'package:first_aid_voice_assistant/data/services/streaming_recognizer.dart';
+import 'package:first_aid_voice_assistant/data/services/text_to_speech.dart';
 import 'package:first_aid_voice_assistant/data/services/voice_recorder.dart';
 import 'package:first_aid_voice_assistant/domain/models/speech_engine.dart';
 import 'package:first_aid_voice_assistant/domain/models/utterance.dart';
@@ -34,10 +40,10 @@ class FakeSpeechInput implements SpeechInput {
 
   void emitPartial(String text) => _partials.add(text);
 
-  void emitUtterance(String text) => _utterances.add(
+  void emitUtterance(String text, {DateTime? endedAt}) => _utterances.add(
     Utterance(
       text: text,
-      endedAt: DateTime(2026, 10, 27, 14, 21, 2),
+      endedAt: endedAt ?? DateTime(2026, 10, 27, 14, 21, 2),
       speechDuration: const Duration(seconds: 2),
       transcriptionDuration: const Duration(milliseconds: 300),
     ),
@@ -251,20 +257,187 @@ class FakeStreamingRecognizer implements StreamingRecognizer {
 class FakeModelStore implements ModelStore {
   FakeModelStore(this.downloaded);
 
-  final Set<SpeechEngine> downloaded;
+  final Set<ModelPackage> downloaded;
 
   @override
-  Future<bool> isDownloaded(SpeechEngine engine) async =>
-      downloaded.contains(engine);
+  Future<bool> isDownloaded(ModelPackage package) async =>
+      downloaded.contains(package);
 
   @override
   Future<String> ensureDownloaded(
-    SpeechEngine engine, {
+    ModelPackage package, {
     void Function(double progress)? onProgress,
   }) async {
-    downloaded.add(engine);
+    downloaded.add(package);
     return 'models';
   }
+}
+
+/// Speech output that records what it was asked to say; with [holdSentences] every
+/// sentence keeps "sounding" until [finishSentence] is called.
+class FakeSpeechOutput implements SpeechOutput {
+  FakeSpeechOutput({this.label = 'Głos systemowy', this.holdSentences = false});
+
+  @override
+  final String label;
+  bool holdSentences;
+  Object? prepareError;
+  Object? speakError;
+  List<double> downloadSteps = [];
+  final List<String> spoken = [];
+  final List<String> prefetched = [];
+  int stops = 0;
+  bool disposed = false;
+  Completer<void>? _sentence;
+
+  bool get isSounding => _sentence != null;
+
+  void finishSentence() {
+    final sentence = _sentence;
+    _sentence = null;
+    sentence?.complete();
+  }
+
+  @override
+  Future<void> prepare({void Function(double progress)? onProgress}) async {
+    downloadSteps.forEach(onProgress ?? (_) {});
+    if (prepareError != null) throw prepareError!;
+  }
+
+  @override
+  void prefetch(String text) => prefetched.add(text);
+
+  @override
+  Future<void> speak(String text, {void Function()? onStart}) async {
+    if (speakError != null) throw speakError!;
+    spoken.add(text);
+    onStart?.call();
+    if (!holdSentences) return;
+    final sentence = Completer<void>();
+    _sentence = sentence;
+    await sentence.future;
+  }
+
+  @override
+  Future<void> stop() async {
+    stops++;
+    finishSentence();
+  }
+
+  @override
+  Future<void> dispose() async => disposed = true;
+}
+
+class FakeChatSocket implements ChatSocket {
+  final List<Uri> connectedTo = [];
+  Object? connectError;
+  FakeChatConnection? connection;
+
+  @override
+  Future<ChatConnection> connect(Uri uri, {required Duration timeout}) async {
+    if (connectError != null) throw connectError!;
+    connectedTo.add(uri);
+    return connection = FakeChatConnection();
+  }
+}
+
+/// Connection that records the messages sent by the app; tests answer with [emit].
+class FakeChatConnection implements ChatConnection {
+  final StreamController<String> _incoming = StreamController<String>();
+  final List<Map<String, dynamic>> sent = [];
+  bool closed = false;
+
+  Map<String, dynamic> get lastAsk => sent.lastWhere((m) => m['type'] == 'ask');
+
+  void emit(Map<String, Object?> event) => _incoming.add(jsonEncode(event));
+
+  void delta(String text) =>
+      emit({'type': 'delta', 'id': lastAsk['id'], 'text': text});
+
+  void done(String text) => emit({
+    'type': 'done',
+    'id': lastAsk['id'],
+    'text': text,
+    'first_token_ms': 120,
+    'total_ms': 900,
+  });
+
+  Future<void> drop() => _incoming.close();
+
+  @override
+  Stream<String> get incoming => _incoming.stream;
+
+  @override
+  void send(String message) =>
+      sent.add(jsonDecode(message) as Map<String, dynamic>);
+
+  @override
+  Future<void> close() async {
+    closed = true;
+    if (!_incoming.isClosed) await _incoming.close();
+  }
+}
+
+class FakeTextToSpeech implements TextToSpeech {
+  bool languageAvailable = true;
+  final List<String> spoken = [];
+  int stops = 0;
+
+  @override
+  Future<bool> setLanguage(String language) async => languageAvailable;
+
+  @override
+  Future<void> speak(String text, {void Function()? onStart}) async {
+    spoken.add(text);
+    onStart?.call();
+  }
+
+  @override
+  Future<void> stop() async => stops++;
+
+  @override
+  Future<void> dispose() async {}
+}
+
+/// Synthesizer that returns one sample per character, at 22050 Hz.
+class FakeSpeechSynthesizer implements SpeechSynthesizer {
+  final List<String> synthesized = [];
+  String? loadedModel;
+  Completer<void>? gate;
+
+  @override
+  Future<void> load({
+    required String model,
+    required String tokens,
+    required String espeakVoice,
+  }) async => loadedModel = model;
+
+  @override
+  Future<SynthesizedSpeech> synthesize(String text) async {
+    synthesized.add(text);
+    await gate?.future;
+    return SynthesizedSpeech(
+      samples: Float32List(text.length),
+      sampleRate: 22050,
+    );
+  }
+
+  @override
+  Future<void> dispose() async {}
+}
+
+class FakeAudioOutput implements AudioOutput {
+  final List<Uint8List> played = [];
+  int stops = 0;
+
+  @override
+  Future<void> playWav(Uint8List wav) async => played.add(wav);
+
+  @override
+  Future<void> stop() async => stops++;
+
+  @override
+  Future<void> dispose() async {}
 }
 
 class MemoryStore implements KeyValueStore {

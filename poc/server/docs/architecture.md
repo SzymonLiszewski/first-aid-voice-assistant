@@ -36,7 +36,7 @@ request ──▶ │ api/  ──▶ pipeline/prompt.py ──▶ providers/reg
 
 ## Chat over a WebSocket (`WS /v1/chat`)
 
-Used by the mobile app ([ADR 0002](../../../docs/adr/0002-streamed-answers-over-websocket-with-on-device-tts.md)). Messages are JSON objects with a `type`.
+Used by the mobile app. Messages are JSON objects with a `type`.
 
 | Direction | `type` | Fields | Meaning |
 |---|---|---|---|

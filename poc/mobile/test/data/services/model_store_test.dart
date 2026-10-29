@@ -55,7 +55,7 @@ void main() {
             url: server.uri.toString(),
             sha256: checksum ?? sha256.convert(server.body).toString(),
             sizeBytes: server.body.length,
-            unzip: unzip,
+            extract: unzip,
           ),
         ],
         retryDelay: Duration.zero,
