@@ -20,6 +20,7 @@ Everything in this repository is written in English: code, comments, commit mess
 ## Pull requests
 
 - Keep pull requests small and focused on one topic.
+- Title in the imperative mood (like a commit subject); description as a short bullet list of changes, without sections (skill `pr-description`).
 - At least one other team member reviews and approves the pull request before merging.
 - Run the checks of the part you changed locally before asking for a review (see its `README.md`).
 - Update the documentation of the part you changed (`README.md`, `docs/`) in the same pull request.

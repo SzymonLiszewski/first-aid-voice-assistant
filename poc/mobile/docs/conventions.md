@@ -3,9 +3,9 @@
 | | |
 |---|---|
 | **Created** | 2026-10-26 |
-| **Version** | 0.1 |
+| **Version** | 0.3 |
 
-> Status: proposed. To be confirmed by the team when the Flutter project is created.
+> Based on the official [Flutter architecture guide](https://docs.flutter.dev/app-architecture/case-study): MVVM with a UI layer (views + view models), a data layer (repositories + services) and a domain layer (models).
 
 ## Tooling
 
@@ -18,25 +18,42 @@
 
 `flutter analyze` and `flutter test` must pass before a pull request is merged.
 
-## Project structure (feature-first)
+## Project structure
+
+The UI layer is organised by feature; the data and domain layers by type, because services and repositories are shared by features.
 
 ```
 lib/
-├── main.dart
-├── app/            # app widget, routing, theme
-├── features/       # one folder per feature: start/, action/, summary/, debug/
-│   └── <feature>/  #   screens, widgets and state of that feature
-├── services/       # audio + VAD, ASR (Whisper), TTS, API client, event log storage
-└── models/         # data classes shared across features (events, API requests and responses)
-test/               # mirrors lib/
+├── main.dart                 # entry point: creates the dependencies, runs the app
+├── config/                   # dependencies.dart – builds the real services for the chosen engine (fakes in tests)
+├── routing/                  # router.dart – route names and which screen each one opens
+├── utils/                    # small shared helpers (times in Polish format, transcript clean-up, PCM conversion)
+├── ui/                       # UI layer – feature-first
+│   ├── core/                 #   app.dart (root widget), themes/, ui/ (shared widgets, demo banner)
+│   └── <feature>/            #   start/, conversation/, settings/
+│       ├── view_models/      #     state and logic of the screen (ChangeNotifier)
+│       └── widgets/          #     <feature>_screen.dart and its widgets
+├── data/                     # data layer – shared by features
+│   ├── services/             #   wrap the outside world: microphone, speech libraries, downloads, phone storage
+│   ├── repositories/         #   logic exposed to view models (speech input, settings)
+│   └── model/                #   API models (for the server connection)
+└── domain/
+    └── models/               # app data types (Utterance, SpeechEngine)
+test/                         # tests mirroring lib/ (ui/, data/, utils/); fakes/ – fake services shared by the tests
 ```
+
+- **View** (`*_screen.dart`) only draws and passes user actions to its view model.
+- **View model** (`*_view_model.dart`) holds the state of one screen and calls repositories or services; it never imports Flutter widgets.
+- **Service** wraps one outside thing (a plugin, the network, storage) behind an interface, so tests can use fakes.
+- **Repository** is the source of truth for some data and the place where several services are combined. Note: this is roughly the reverse of Spring-style backend naming, where the service holds the logic and the repository accesses the data.
+- Folders without code yet keep a `.gitkeep`.
 
 ## Dart style
 
 - Follow [Effective Dart](https://dart.dev/effective-dart): `lowerCamelCase` for variables and functions, `UpperCamelCase` for types, `snake_case` for file names.
 - Prefer `final` and immutable data classes; mark widgets `const` where possible.
 - Keep widgets small: UI in widgets, logic in services or state classes, not in `build` methods.
-- Data exchanged with the server is defined once in `models/` and matches the PoC server API (`/docs` of the running server).
+- Data exchanged with the server is defined once in `data/model/` and matches the PoC server API (`/docs` of the running server).
 - Everything is in English (identifiers, comments, logs); only user-facing texts shown in the app are in Polish.
 
 ## Errors
@@ -54,3 +71,5 @@ test/               # mirrors lib/
 | Version | Date | Changes |
 |---|---|---|
 | 0.1 | 2026-10-26 | Proposed conventions |
+| 0.2 | 2026-10-27 | Structure aligned with the official Flutter architecture guide |
+| 0.3 | 2026-10-29 | Structure updated for the speech engines; note on service and repository naming |

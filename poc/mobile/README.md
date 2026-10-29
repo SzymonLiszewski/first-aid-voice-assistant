@@ -1,26 +1,107 @@
 # PoC mobile app
 
-Demo mobile app of the first-aid voice assistant (Flutter, Android and iOS). **Not started yet** – this folder will hold the Flutter project.
+Demo mobile app of the first-aid voice assistant (Flutter, Android and iOS). **Status:** the start screen and on-device speech recognition work – the test conversation shows every utterance as a separate message with its time. Three speech engines can be compared on the phone (Parakeet, Vosk, Whisper). Next: answers from the server and reading them aloud. Why Flutter: [ADR 0001](../../docs/adr/0001-flutter-for-mobile-app.md).
 
-## Planned scope
+| | |
+|---|---|
+| Package | `first_aid_voice_assistant` |
+| Android application ID | `io.github.szymonliszewski.first_aid_voice_assistant` |
+| iOS bundle ID | `io.github.szymonliszewski.firstAidVoiceAssistant` |
+| Platforms | Android (arm64 phones), iOS (not built yet; needs a Mac with Xcode) |
 
-- **Start screen:** a large "Start helping" button, layperson / paramedic mode, a visible "call 112" button.
-- **Action screen:** continuous listening, the current instruction in large text (also read aloud), listening / analysing / speaking indicator, action timer and 2-minute cycle counter, latest events.
-- **Summary screen:** timeline of the recorded actions and export of the event log (JSON).
-- **Debug panel (hidden):** transcript, raw model response and the duration of each stage.
+## Scope of the demo
 
-Speech recognition (Whisper) runs on the phone; the transcript is sent to the [PoC server](../server). Details: [docs/architecture.md](docs/architecture.md). Coding conventions: [docs/conventions.md](docs/conventions.md).
+The demo checks that a voice conversation with the assistant works end to end.
+
+| Screen / step | Status |
+|---|---|
+| **Start** – "demo version" banner, what the demo checks, button to the test conversation | done |
+| **Test conversation** – tap to start, speak with pauses, tap to stop; text appears while speaking, every utterance becomes a message with its time and timings | done (user messages only) |
+| Answers from the [PoC server](../server), read aloud | next |
+| **Settings** – speech engine (Parakeet, Vosk, Whisper tiny / base / small) | done |
+| Settings – server address, voice check | planned |
+
+Details: [docs/architecture.md](docs/architecture.md). Coding conventions: [docs/conventions.md](docs/conventions.md).
+
+## Speech engines
+
+All engines run on the phone and work offline after a one-time download.
+
+| Engine | Library | Download | Notes |
+|---|---|---|---|
+| **Parakeet v3** (default) | [sherpa-onnx](https://github.com/k2-fsa/sherpa-onnx) | ~670 MB | NVIDIA Parakeet TDT 0.6B v3, int8; 25 European languages, with punctuation |
+| **Vosk small-pl** | [Vosk](https://alphacephei.com/vosk/) | ~53 MB (zip) | streaming, text appears immediately, no punctuation |
+| **Whisper tiny / base / small** | [whisper.cpp](https://github.com/ggml-org/whisper.cpp) | ~33 / 61 / 191 MB | quantised (q5_1), tuned for speed |
+
+Parakeet and Whisper also download the Silero voice activity detector (~0.6 MB), which finds speech in the recording.
+
+| Model | Licence | Source |
+|---|---|---|
+| Parakeet TDT 0.6B v3 | CC-BY-4.0 (attribution: NVIDIA) | [csukuangfj/sherpa-onnx-nemo-parakeet-tdt-0.6b-v3-int8](https://huggingface.co/csukuangfj/sherpa-onnx-nemo-parakeet-tdt-0.6b-v3-int8) |
+| Silero VAD | MIT | [sherpa-onnx release assets](https://github.com/k2-fsa/sherpa-onnx/releases/tag/asr-models) |
+| vosk-model-small-pl-0.22 | Apache-2.0 | [alphacephei.com/vosk/models](https://alphacephei.com/vosk/models) |
+| Whisper (ggml, q5_1) | MIT | [ggerganov/whisper.cpp](https://huggingface.co/ggerganov/whisper.cpp) |
+
+Model files are not committed; the URLs, sizes and SHA-256 checksums are pinned in `lib/domain/models/speech_engine.dart`.
+
+## Setup (once)
+
+1. Install the [Flutter SDK](https://docs.flutter.dev/install/archive) (stable), unpack it to a folder without spaces (e.g. `C:\Users\<you>\dev\flutter`) and add its `bin` folder to `PATH`.
+2. Install the Android SDK with **Android SDK Platform 37.0**, **Android SDK Command-line Tools** and **NDK (Side by side) 29** (Android Studio → SDK Manager → "Show Package Details"). The NDK compiles the native speech libraries.
+3. In VS Code install the **Flutter** extension.
+4. Check the setup: `flutter doctor` – *Flutter* and *Android toolchain* must be green.
 
 ## Running
 
-To be filled in when the Flutter project is created (`flutter create`). Expected:
+All commands are run from `poc/mobile/`.
 
 ```bash
-cd poc/mobile
 flutter pub get
-flutter run
+flutter run --release
 ```
 
-Server address: from an Android emulator `http://10.0.2.2:8000`, from a physical phone the computer's LAN address.
+In VS Code: pick the device in the status bar and press F5. Use a **real arm64 phone** (USB debugging on): the speech libraries ship no x86 build for the emulator, and the emulator's microphone and performance do not reflect real use. Measure speed in release (or profile) mode – debug builds are several times slower.
+
+Server address (for the next step): from an Android emulator `http://10.0.2.2:8000`, from a physical phone the computer's LAN address.
+
+## First run
+
+- The speech engine is chosen in **Settings** (default: Parakeet v3). When the test conversation opens with an engine that is not on the phone yet, the app downloads it once with a progress bar (use Wi-Fi for Parakeet); interrupted downloads resume and every file is checked against its size and SHA-256.
+- The app asks for microphone access on the first tap of the talk button.
+- iOS: the deployment target is 15.6. When CocoaPods creates `ios/Podfile` on a Mac, set `platform :ios, '15.6'` there too. The iOS build has not been tried yet.
+
+## Checks
+
+```bash
+dart format .
+flutter analyze
+flutter test
+```
+
+## Structure
+
+Layers follow the official Flutter architecture guide – see [docs/conventions.md](docs/conventions.md).
+
+```
+lib/
+├── main.dart                 # entry point: creates the dependencies, runs the app
+├── config/                   # dependencies.dart – builds the real services for the chosen engine (fakes in tests)
+├── routing/                  # router.dart – route names and which screen each one opens
+├── utils/                    # small shared helpers (times in Polish format, transcript clean-up, PCM conversion)
+├── ui/                       # UI layer – feature-first
+│   ├── core/                 #   app.dart (root widget), themes/, ui/ (shared widgets, demo banner)
+│   └── <feature>/            #   start/, conversation/, settings/
+│       ├── view_models/      #     state and logic of the screen (ChangeNotifier)
+│       └── widgets/          #     <feature>_screen.dart and its widgets
+├── data/                     # data layer – shared by features
+│   ├── services/             #   wrap the outside world: microphone, speech libraries, downloads, phone storage
+│   ├── repositories/         #   logic exposed to view models (speech input, settings)
+│   └── model/                #   API models (for the server connection)
+└── domain/
+    └── models/               # app data types (Utterance, SpeechEngine)
+test/                         # tests mirroring lib/ (ui/, data/, utils/); fakes/ – fake services shared by the tests
+```
+
+Other folders: `android/`, `ios/` (platform projects: microphone permission, SDK 37.0, ProGuard rules for Vosk, iOS 15.6), `docs/` (architecture, conventions), `pubspec.yaml` (dependencies: sherpa_onnx, vosk_flutter_service, whisper_cpp_flutter_plus, record, shared_preferences, path_provider, archive, crypto).
 
 Working rules: [AGENTS.md](AGENTS.md) and the project-wide [AGENTS.md](../../AGENTS.md).

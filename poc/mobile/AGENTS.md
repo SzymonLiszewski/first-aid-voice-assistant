@@ -2,7 +2,7 @@
 
 Project-wide rules (language, domain and safety, data, documentation) are in the root [`AGENTS.md`](../../AGENTS.md); this file adds the rules specific to the mobile app. Run all commands from `poc/mobile/`.
 
-Status: not started. The Flutter project will be created here.
+Status: start screen and on-device speech recognition are implemented, with three selectable engines (Parakeet via sherpa-onnx, Vosk, Whisper via whisper.cpp); the test conversation shows only the user's messages so far. Setup and commands: `README.md`, design: `docs/architecture.md`.
 
 ## Safety in this part
 
@@ -15,7 +15,8 @@ Status: not started. The Flutter project will be created here.
 - Requests to the server and responses from it follow the server API (Pydantic models in `poc/server`, browsable at `/docs` of the running server). Event-log entries follow `docs/project/architecture.md`.
 - Event timestamps are taken at the **end of the utterance**, not when the server answers – otherwise server latency distorts the times compared with the reference log in the evaluation.
 - The state of the action (event history, current scenario step) is kept in the app and sent with every request; the server does not keep sessions.
-- Model files (Whisper weights) are not committed; document where to download them.
+- Model files (speech model weights) are not committed; their URLs, sizes and SHA-256 checksums are pinned in `lib/domain/models/speech_engine.dart` and listed in `README.md`.
+- No comments in `lib/`; the code should explain itself through names. Non-obvious build workarounds in `android/` keep a short comment.
 - Coding conventions: [docs/conventions.md](docs/conventions.md).
 
 ## Definition of done
