@@ -16,13 +16,12 @@ Route<void> buildRoute(RouteSettings route, AppDependencies dependencies) {
     settings: route,
     builder: (context) => switch (route.name) {
       Routes.conversation => ConversationScreen(
-        createViewModel: () => dependencies.createConversationViewModel(
-          dependencies.settings.speechEngine,
-        ),
+        createViewModel: dependencies.createConversationViewModel,
       ),
       Routes.settings => SettingsScreen(
         settings: dependencies.settings,
         modelStore: dependencies.modelStore,
+        createSpeechOutput: dependencies.createSpeechOutput,
       ),
       _ => StartScreen(
         onStart: () => Navigator.of(context).pushNamed(Routes.conversation),

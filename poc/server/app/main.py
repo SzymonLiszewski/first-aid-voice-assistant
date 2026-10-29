@@ -2,7 +2,7 @@ from pathlib import Path
 
 from fastapi import FastAPI
 
-from app.api import dev, rest
+from app.api import dev, rest, ws
 from app.core.config import Settings, load_config
 from app.providers.registry import build_llm
 
@@ -17,6 +17,7 @@ def create_app(config_path: str | None = None) -> FastAPI:
     app.state.system_prompt = Path(config.prompts.system).read_text(encoding="utf-8")
 
     app.include_router(rest.router)
+    app.include_router(ws.router)
     if settings.dev_mode:
         app.include_router(dev.router)
     return app

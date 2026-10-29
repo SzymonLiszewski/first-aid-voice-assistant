@@ -1,6 +1,6 @@
 # PoC mobile app
 
-Demo mobile app of the first-aid voice assistant (Flutter, Android and iOS). **Status:** the start screen and on-device speech recognition work – the test conversation shows every utterance as a separate message with its time. Three speech engines can be compared on the phone (Parakeet, Vosk, Whisper). Next: answers from the server and reading them aloud. Why Flutter: [ADR 0001](../../docs/adr/0001-flutter-for-mobile-app.md).
+Demo mobile app of the first-aid voice assistant (Flutter, Android and iOS). **Status:** the test conversation works end to end – speech is recognised on the phone (Parakeet, Vosk or Whisper), every utterance goes to the [PoC server](../server) over a WebSocket, and the answer appears while it is generated and is read aloud sentence by sentence (system voice or Piper). You and the assistant take turns: when you stop speaking, the microphone switches off by itself and the assistant answers; when it has finished, tap the button to speak again ("Przerwij" stops it earlier). Why Flutter: [ADR 0001](../../docs/adr/0001-flutter-for-mobile-app.md).
 
 | | |
 |---|---|
@@ -16,10 +16,10 @@ The demo checks that a voice conversation with the assistant works end to end.
 | Screen / step | Status |
 |---|---|
 | **Start** – "demo version" banner, what the demo checks, button to the test conversation | done |
-| **Test conversation** – tap to start, speak with pauses, tap to stop; text appears while speaking, every utterance becomes a message with its time and timings | done (user messages only) |
-| Answers from the [PoC server](../server), read aloud | next |
+| **Test conversation** – tap to start, speak with pauses, tap to stop; text appears while speaking, every utterance becomes a message with its time and timings | done |
+| Answers from the [PoC server](../server) over a WebSocket, shown while streamed and read aloud sentence by sentence; the microphone stops by itself when you finish and stays off while the assistant answers; "Przerwij" stops the answer | done |
 | **Settings** – speech engine (Parakeet, Vosk, Whisper tiny / base / small) | done |
-| Settings – server address, voice check | planned |
+| Settings – voice (system / Piper) with "Odsłuchaj głos", server address | done |
 
 Details: [docs/architecture.md](docs/architecture.md). Coding conventions: [docs/conventions.md](docs/conventions.md).
 
@@ -44,6 +44,17 @@ Parakeet and Whisper also download the Silero voice activity detector (~0.6 MB),
 
 Model files are not committed; the URLs, sizes and SHA-256 checksums are pinned in `lib/domain/models/speech_engine.dart`.
 
+## Voices
+
+| Voice | Library | Download | Notes |
+|---|---|---|---|
+| **System voice** (default) | [flutter_tts](https://pub.dev/packages/flutter_tts) | none | the phone's text-to-speech (Google / Apple); needs a Polish voice installed on the phone; sounds different on every phone |
+| **Piper – Gosia** | [sherpa-onnx](https://github.com/k2-fsa/sherpa-onnx) | ~67 MB (tar.bz2) | neural voice `pl_PL-gosia-medium`, the same on every phone, offline; played with [audioplayers](https://pub.dev/packages/audioplayers) |
+
+| Model | Licence | Source |
+|---|---|---|
+| Piper `pl_PL-gosia-medium` | voice data CC0 ([model card](https://github.com/OHF-Voice/voice-datasets)); espeak-ng data GPL-3.0 | [sherpa-onnx release assets](https://github.com/k2-fsa/sherpa-onnx/releases/tag/tts-models) |
+
 ## Setup (once)
 
 1. Install the [Flutter SDK](https://docs.flutter.dev/install/archive) (stable), unpack it to a folder without spaces (e.g. `C:\Users\<you>\dev\flutter`) and add its `bin` folder to `PATH`.
@@ -62,7 +73,7 @@ flutter run --release
 
 In VS Code: pick the device in the status bar and press F5. Use a **real arm64 phone** (USB debugging on): the speech libraries ship no x86 build for the emulator, and the emulator's microphone and performance do not reflect real use. Measure speed in release (or profile) mode – debug builds are several times slower.
 
-Server address (for the next step): from an Android emulator `http://10.0.2.2:8000`, from a physical phone the computer's LAN address.
+Server: start the [PoC server](../server) and set its address in **Settings → Serwer asystenta** – from an Android emulator `http://10.0.2.2:8000` (default), from a physical phone the computer's address in the same Wi-Fi network (e.g. `http://192.168.1.20:8000`, server started with `--host 0.0.0.0`). Without a model, `APP_CONFIG=configs/fake.yaml` streams a fixed Polish answer slowly, enough to try reading aloud and interrupting. When the phone is not in the computer's network, connect it by USB, run `adb reverse tcp:8000 tcp:8000` and use `http://127.0.0.1:8000`.
 
 ## First run
 
@@ -94,14 +105,14 @@ lib/
 │       ├── view_models/      #     state and logic of the screen (ChangeNotifier)
 │       └── widgets/          #     <feature>_screen.dart and its widgets
 ├── data/                     # data layer – shared by features
-│   ├── services/             #   wrap the outside world: microphone, speech libraries, downloads, phone storage
-│   ├── repositories/         #   logic exposed to view models (speech input, settings)
-│   └── model/                #   API models (for the server connection)
+│   ├── services/             #   wrap the outside world: microphone, speech libraries, TTS, audio player, WebSocket, downloads, phone storage
+│   ├── repositories/         #   logic exposed to view models (speech input and output, assistant, answer speaker, settings)
+│   └── model/                #   API models (WebSocket chat messages)
 └── domain/
-    └── models/               # app data types (Utterance, SpeechEngine)
+    └── models/               # app data types (Utterance, SpeechEngine, VoiceEngine, conversation entries)
 test/                         # tests mirroring lib/ (ui/, data/, utils/); fakes/ – fake services shared by the tests
 ```
 
-Other folders: `android/`, `ios/` (platform projects: microphone permission, SDK 37.0, ProGuard rules for Vosk, iOS 15.6), `docs/` (architecture, conventions), `pubspec.yaml` (dependencies: sherpa_onnx, vosk_flutter_service, whisper_cpp_flutter_plus, record, shared_preferences, path_provider, archive, crypto).
+Other folders: `android/`, `ios/` (platform projects: microphone permission, SDK 37.0, ProGuard rules for Vosk, iOS 15.6), `docs/` (architecture, conventions), `pubspec.yaml` (dependencies: sherpa_onnx, vosk_flutter_service, whisper_cpp_flutter_plus, record, flutter_tts, audioplayers, web_socket_channel, shared_preferences, path_provider, archive, crypto).
 
 Working rules: [AGENTS.md](AGENTS.md) and the project-wide [AGENTS.md](../../AGENTS.md).

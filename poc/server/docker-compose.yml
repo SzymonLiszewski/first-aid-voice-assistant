@@ -21,7 +21,7 @@ services:
 
   llm:                         # local model server; on GPU/production consider vllm/vllm-openai
     image: ollama/ollama       # TODO: pin version
-    ports: ["11434:11434"]     # lets a locally run app (configs/local.yaml) reach it
+    ports: ["11434:11434"]     # lets a locally run app (configs/gemma.yaml, configs/bielik.yaml) reach it
     volumes: [ollama_models:/root/.ollama]
     healthcheck:
       test: ["CMD", "ollama", "list"]

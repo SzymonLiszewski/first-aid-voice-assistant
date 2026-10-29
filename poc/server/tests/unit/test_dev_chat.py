@@ -4,12 +4,15 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.main import create_app
+from app.providers.llm.fake import FakeLLM
 
 
 @pytest.fixture
 def client(monkeypatch: pytest.MonkeyPatch) -> TestClient:
     monkeypatch.setenv("DEV_MODE", "true")
-    return TestClient(create_app("configs/fake.yaml"))
+    app = create_app("configs/fake.yaml")
+    app.state.llm = FakeLLM()  # echoes the input, which makes the prompt observable
+    return TestClient(app)
 
 
 def test_chat_returns_answer(client: TestClient) -> None:

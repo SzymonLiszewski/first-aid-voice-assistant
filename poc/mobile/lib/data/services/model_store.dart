@@ -6,13 +6,13 @@ import 'package:archive/archive_io.dart';
 import 'package:crypto/crypto.dart';
 import 'package:path_provider/path_provider.dart';
 
-import '../../domain/models/speech_engine.dart';
+import '../../domain/models/model_file.dart';
 
 abstract interface class ModelStore {
-  Future<bool> isDownloaded(SpeechEngine engine);
+  Future<bool> isDownloaded(ModelPackage package);
 
   Future<String> ensureDownloaded(
-    SpeechEngine engine, {
+    ModelPackage package, {
     void Function(double progress)? onProgress,
   });
 }
@@ -29,16 +29,16 @@ class ModelDownloadException implements Exception {
 class FileModelStore implements ModelStore {
   FileModelStore({
     Future<String> Function()? directory,
-    List<ModelFile> Function(SpeechEngine engine)? describe,
+    List<ModelFile> Function(ModelPackage package)? describe,
     this.maxAttempts = 3,
     this.retryDelay = const Duration(seconds: 2),
     this.connectTimeout = const Duration(seconds: 20),
     this.idleTimeout = const Duration(seconds: 30),
   }) : _directory = directory ?? _defaultDirectory,
-       _describe = describe ?? ((engine) => engine.files);
+       _describe = describe ?? ((package) => package.files);
 
   final Future<String> Function() _directory;
-  final List<ModelFile> Function(SpeechEngine engine) _describe;
+  final List<ModelFile> Function(ModelPackage package) _describe;
   final int maxAttempts;
   final Duration retryDelay;
   final Duration connectTimeout;
@@ -48,9 +48,9 @@ class FileModelStore implements ModelStore {
       '${(await getApplicationSupportDirectory()).path}/models';
 
   @override
-  Future<bool> isDownloaded(SpeechEngine engine) async {
+  Future<bool> isDownloaded(ModelPackage package) async {
     final root = await _directory();
-    for (final file in _describe(engine)) {
+    for (final file in _describe(package)) {
       if (!await _isReady(root, file)) return false;
     }
     return true;
@@ -58,12 +58,12 @@ class FileModelStore implements ModelStore {
 
   @override
   Future<String> ensureDownloaded(
-    SpeechEngine engine, {
+    ModelPackage package, {
     void Function(double progress)? onProgress,
   }) async {
     final root = await _directory();
     final missing = <ModelFile>[];
-    for (final file in _describe(engine)) {
+    for (final file in _describe(package)) {
       if (!await _isReady(root, file)) missing.add(file);
     }
     final total = missing.fold<int>(0, (sum, file) => sum + file.sizeBytes);
@@ -80,7 +80,7 @@ class FileModelStore implements ModelStore {
   }
 
   Future<bool> _isReady(String root, ModelFile file) async {
-    if (file.unzip) return File(_markerPath(root, file)).exists();
+    if (file.extract) return File(_markerPath(root, file)).exists();
     final target = File('$root/${file.path}');
     return await target.exists() && await target.length() == file.sizeBytes;
   }
@@ -104,7 +104,7 @@ class FileModelStore implements ModelStore {
         await _download(file, partial, onReceived);
         await _verify(file, partial);
         await partial.rename(target.path);
-        if (file.unzip) await _extract(root, file, target);
+        if (file.extract) await _extract(root, file, target);
         return;
       } catch (e) {
         lastError = e;

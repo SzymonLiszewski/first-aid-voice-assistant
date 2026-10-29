@@ -1,9 +1,16 @@
-# No model needed: FakeLLM echoes the input. Handy for UI work and tests.
+# No model needed: FakeLLM streams a fixed Polish answer word by word with a delay, like a
+# slow model. Handy for UI work and for trying the mobile app without a model. The answer does
+# not repeat the user's words. Tests replace this provider with an echoing FakeLLM.
 asr:
   provider: openai_compat
   params: { base_url: "http://asr:8000/v1", model: large-v3, language: pl }
 llm:
   provider: fake
-  params: {}
+  params:
+    delay: 0.15
+    reply: >-
+      Rozumiem. Najpierw zadzwoń pod numer sto dwanaście i włącz tryb głośnomówiący.
+      Sprawdź, czy poszkodowany oddycha. Jeśli nie oddycha, zacznij uciskać środek klatki
+      piersiowej.
 rag: { enabled: false }
 prompts: { system: prompts/system_v1.md }

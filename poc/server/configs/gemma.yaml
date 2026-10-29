@@ -1,5 +1,5 @@
-# For running the app outside Docker (uv run uvicorn ...) against the Ollama container,
-# which publishes port 11434 on the host.
+# Gemma 3 1B in the Ollama container, app on the host (uv run uvicorn ...); the container
+# publishes port 11434 on the host. Run: APP_CONFIG=configs/gemma.yaml
 asr:
   provider: openai_compat
   params: { base_url: "http://localhost:8001/v1", model: large-v3, language: pl }

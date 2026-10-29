@@ -1,20 +1,6 @@
-class ModelFile {
-  const ModelFile({
-    required this.path,
-    required this.url,
-    required this.sha256,
-    required this.sizeBytes,
-    this.unzip = false,
-  });
+import 'model_file.dart';
 
-  final String path;
-  final String url;
-  final String sha256;
-  final int sizeBytes;
-  final bool unzip;
-
-  Uri get uri => Uri.parse(url);
-}
+export 'model_file.dart';
 
 enum EngineFamily { parakeet, vosk, whisper }
 
@@ -30,7 +16,7 @@ const ModelFile _sileroVad = ModelFile(
   sizeBytes: 643854,
 );
 
-enum SpeechEngine {
+enum SpeechEngine implements ModelPackage {
   parakeet(
     title: 'Parakeet v3',
     library: 'sherpa-onnx',
@@ -83,7 +69,7 @@ enum SpeechEngine {
         sha256:
             'c4cd16498ea544f446f9e9a55cbd602b71cfe5a2b6f2b0834d81e1b6fce15f0d',
         sizeBytes: 52979372,
-        unzip: true,
+        extract: true,
       ),
     ],
   ),
@@ -154,11 +140,13 @@ enum SpeechEngine {
 
   static const String voskModelDir = 'vosk/vosk-model-small-pl-0.22';
 
+  @override
   final String title;
   final String library;
   final String sizeLabel;
   final String description;
   final EngineFamily family;
+  @override
   final List<ModelFile> files;
 
   String get primaryModelPath => files.first.path;

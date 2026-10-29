@@ -11,8 +11,8 @@ All commands below are run from `poc/server/`.
 - Modular monolith (FastAPI) – one `app` container.
 - Open-source models in separate containers (Ollama/vLLM, faster-whisper server), enabled via compose profiles.
 - Commercial models behind the same provider interfaces (LiteLLM adapter).
-- API: `GET /health`, `GET /v1/providers`, and the dev-only `POST /dev/chat` for testing the LLM with ready-made transcripts.
-- No audio/ASR yet, and no conversation history: each request is a single, independent turn.
+- API: `GET /health`, `GET /v1/providers`, `WS /v1/chat` (the mobile app's chat: the answer is streamed and can be cancelled; the app sends the conversation history with every question) and the dev-only `POST /dev/chat` for testing the LLM with ready-made transcripts.
+- No audio/ASR on the server: speech is recognised on the phone.
 - RAG is disabled (`rag.enabled: false`); Qdrant sits behind the `rag` profile.
 
 More: [docs/architecture.md](docs/architecture.md). Coding conventions: [docs/conventions.md](docs/conventions.md).
@@ -23,7 +23,7 @@ More: [docs/architecture.md](docs/architecture.md). Coding conventions: [docs/co
 poc/server/
 ├── app/                      # backend (FastAPI)
 │   ├── main.py               # app factory, wiring
-│   ├── api/                  # REST endpoints, dev-only test endpoint and page (static/)
+│   ├── api/                  # REST endpoints, chat WebSocket (ws.py), dev-only test endpoint and page (static/)
 │   ├── core/                 # config loading (env + YAML)
 │   ├── pipeline/             # prompt building
 │   ├── providers/            # model adapters
@@ -33,7 +33,7 @@ poc/server/
 │   │   └── asr/ tts/ embeddings/   # empty for now
 │   ├── rag/                  # empty for now
 │   └── tools/                # helper commands (e.g. pulling the Ollama model)
-├── configs/                  # base.yaml, fake.yaml, local.yaml, experiments/, domain_terms.txt
+├── configs/                  # base.yaml, fake.yaml, gemma.yaml, bielik.yaml, experiments/, domain_terms.txt
 ├── prompts/                  # system prompts (versioned files)
 ├── scripts/                  # chat_client.py (terminal test client)
 ├── tests/                    # unit/ and contract/ (same tests for every provider)
@@ -68,13 +68,13 @@ Then open **http://localhost:8000/dev**, paste a transcript and send it. Or use 
 uv run python scripts/chat_client.py "Mój kolega nie oddycha, co mam robić?"
 ```
 
-Without a model (echo mode, handy for UI work):
+Without a model (a fixed Polish answer streamed slowly, handy for UI work):
 
 ```powershell
 $env:APP_CONFIG = "configs/fake.yaml"; uv run uvicorn app.main:app --reload
 ```
 
-Running the app locally against the Ollama container: `$env:APP_CONFIG = "configs/local.yaml"`.
+Running the app locally against the Ollama container: `$env:APP_CONFIG = "configs/gemma.yaml"` (Gemma 3 1B) or `"configs/bielik.yaml"` (Bielik 4.5B v3; pull it once with `docker compose exec llm ollama pull hf.co/speakleash/Bielik-4.5B-v3.0-Instruct-GGUF:Q8_0`).
 
 GPU: `docker compose -f docker-compose.yml -f docker-compose.gpu.yml up`.
 
@@ -97,6 +97,12 @@ Model setup lives in `configs/base.yaml` (pick another file with `APP_CONFIG`); 
 
 ## Mobile client
 
-The demo mobile app lives in [`../mobile`](../mobile). To reach this server from an Android emulator use `http://10.0.2.2:8000`; from a physical phone use the computer's LAN address.
+The demo mobile app lives in [`../mobile`](../mobile); it connects to `ws://<address>/v1/chat` (the address is set in the app's settings). From an Android emulator use `http://10.0.2.2:8000`; from a physical phone use the computer's LAN address and start the server with `--host 0.0.0.0` (`docker compose` already publishes the port).
+
+To try reading aloud and interrupting without a model:
+
+```powershell
+$env:APP_CONFIG = "configs/fake.yaml"; uv run uvicorn app.main:app --host 0.0.0.0
+```
 
 Working rules for code and agents: [AGENTS.md](AGENTS.md) (and the project-wide [AGENTS.md](../../AGENTS.md)).

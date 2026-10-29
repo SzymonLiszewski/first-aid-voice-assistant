@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | **Created** | 2026-10-26 |
-| **Version** | 0.3 |
+| **Version** | 0.4 |
 
 > Based on the official [Flutter architecture guide](https://docs.flutter.dev/app-architecture/case-study): MVVM with a UI layer (views + view models), a data layer (repositories + services) and a domain layer (models).
 
@@ -58,7 +58,7 @@ test/                         # tests mirroring lib/ (ui/, data/, utils/); fakes
 
 ## Errors
 
-- Every network call has a timeout. On error or timeout the app shows a clear message and the "call 112" action – never an invented instruction.
+- Every network call has a timeout (WebSocket: 5 s to connect, 30 s without an event). On error or timeout the app shows and says a clear message with the "call 112" action – never an invented instruction.
 - Use a logger (e.g. `package:logging`) instead of `print`; do not log full transcripts outside debug builds.
 
 ## Tests
@@ -73,3 +73,4 @@ test/                         # tests mirroring lib/ (ui/, data/, utils/); fakes
 | 0.1 | 2026-10-26 | Proposed conventions |
 | 0.2 | 2026-10-27 | Structure aligned with the official Flutter architecture guide |
 | 0.3 | 2026-10-29 | Structure updated for the speech engines; note on service and repository naming |
+| 0.4 | 2026-10-29 | WebSocket timeouts; the fallback message is also spoken |

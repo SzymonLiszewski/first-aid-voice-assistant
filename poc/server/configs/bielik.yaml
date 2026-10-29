@@ -1,0 +1,15 @@
+# Bielik 4.5B v3 Instruct (SpeakLeash, Polish) in the Ollama container, app on the host
+# (like gemma.yaml). Q8_0 GGUF, about 4.8 GB, fits an 8 GB GPU. Run: APP_CONFIG=configs/bielik.yaml
+# Pull once: docker compose exec llm ollama pull hf.co/speakleash/Bielik-4.5B-v3.0-Instruct-GGUF:Q8_0
+asr:
+  provider: openai_compat
+  params: { base_url: "http://localhost:8001/v1", model: large-v3, language: pl }
+  hotwords_file: configs/domain_terms.txt
+llm:
+  provider: litellm
+  params:
+    model: "ollama_chat/hf.co/speakleash/Bielik-4.5B-v3.0-Instruct-GGUF:Q8_0"
+    api_base: "http://localhost:11434"
+    temperature: 0.3
+rag: { enabled: false }
+prompts: { system: prompts/system_v1.md }

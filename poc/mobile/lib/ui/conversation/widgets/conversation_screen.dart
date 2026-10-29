@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/themes/theme.dart';
 import '../../core/ui/demo_banner.dart';
+import '../../../domain/models/conversation_entry.dart';
 import '../../../domain/models/utterance.dart';
 import '../../../utils/format.dart';
 import '../view_models/conversation_view_model.dart';
@@ -71,18 +72,23 @@ class _ConversationScreenState extends State<ConversationScreen> {
                 _ModelStatus(viewModel: _viewModel),
                 const SizedBox(height: 12),
                 Expanded(
-                  child: _viewModel.utterances.isEmpty && !_showsPartial
+                  child: _viewModel.entries.isEmpty && !_showsPartial
                       ? const _EmptyConversation()
                       : ListView.separated(
                           controller: _scroll,
                           itemCount:
-                              _viewModel.utterances.length +
+                              _viewModel.entries.length +
                               (_showsPartial ? 1 : 0),
                           separatorBuilder: (_, _) =>
                               const SizedBox(height: 10),
-                          itemBuilder: (_, i) =>
-                              i < _viewModel.utterances.length
-                              ? _UserBubble(utterance: _viewModel.utterances[i])
+                          itemBuilder: (_, i) => i < _viewModel.entries.length
+                              ? switch (_viewModel.entries[i]) {
+                                  UserMessage(:final utterance) => _UserBubble(
+                                    utterance: utterance,
+                                  ),
+                                  final AssistantMessage answer =>
+                                    _AssistantBubble(answer: answer),
+                                }
                               : _PartialBubble(text: _viewModel.partialText),
                         ),
                 ),
@@ -112,15 +118,18 @@ class _ModelStatus extends StatelessWidget {
       ConversationStatus.preparingModel => (
         AppColors.busy,
         viewModel.downloadProgress == null
-            ? 'Przygotowanie modelu ${viewModel.modelLabel}…'
-            : 'Pobieranie modelu ${viewModel.modelLabel}: '
+            ? 'Przygotowanie: ${viewModel.preparingLabel}…'
+            : 'Pobieranie: ${viewModel.preparingLabel} '
                   '${(viewModel.downloadProgress! * 100).floor()}% (tylko za pierwszym razem)',
       ),
       ConversationStatus.failed => (
         AppColors.primary,
-        'Model ${viewModel.modelLabel} niedostępny',
+        '${viewModel.preparingLabel} niedostępny',
       ),
-      _ => (AppColors.ok, '${viewModel.modelLabel} · gotowy'),
+      _ => (
+        AppColors.ok,
+        '${viewModel.modelLabel} · ${viewModel.voiceLabel} · gotowe',
+      ),
     };
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
@@ -177,7 +186,8 @@ class _EmptyConversation extends StatelessWidget {
       child: Padding(
         padding: EdgeInsets.symmetric(horizontal: 24),
         child: Text(
-          'Naciśnij przycisk i mów po polsku.\nKażda wypowiedź pojawi się tutaj osobno, z godziną.',
+          'Naciśnij przycisk i mów po polsku.\nKażda wypowiedź pojawi się tutaj osobno, '
+          'a asystent odpowie na głos.',
           textAlign: TextAlign.center,
           style: TextStyle(
             fontSize: 15,
@@ -243,6 +253,69 @@ class _UserBubble extends StatelessWidget {
   }
 }
 
+class _AssistantBubble extends StatelessWidget {
+  const _AssistantBubble({required this.answer});
+
+  final AssistantMessage answer;
+
+  @override
+  Widget build(BuildContext context) {
+    final failed = answer.state == AnswerState.failed;
+    final interrupted = answer.state == AnswerState.interrupted;
+    final details = [
+      if (answer.firstSoundAfter != null)
+        'głos po ${formatSeconds(answer.firstSoundAfter!)}',
+      if (answer.firstTokenTime != null)
+        'model ${formatSeconds(answer.firstTokenTime!)}',
+      if (interrupted) 'przerwano',
+    ];
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          maxWidth: MediaQuery.sizeOf(context).width * 0.85,
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              decoration: BoxDecoration(
+                color: failed ? AppColors.primarySoft : AppColors.surface,
+                borderRadius: const BorderRadius.only(
+                  topLeft: Radius.circular(18),
+                  topRight: Radius.circular(18),
+                  bottomLeft: Radius.circular(4),
+                  bottomRight: Radius.circular(18),
+                ),
+              ),
+              child: Text(
+                answer.text.isEmpty ? '…' : answer.text,
+                style: TextStyle(
+                  color: interrupted ? AppColors.textSecondary : AppColors.text,
+                  fontSize: 16,
+                  height: 1.4,
+                ),
+              ),
+            ),
+            if (details.isNotEmpty) ...[
+              const SizedBox(height: 4),
+              Text(
+                details.join(' · '),
+                style: const TextStyle(
+                  fontSize: 12,
+                  color: AppColors.textSecondary,
+                  fontFeatures: [FontFeature.tabularFigures()],
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _PartialBubble extends StatelessWidget {
   const _PartialBubble({required this.text});
 
@@ -290,9 +363,18 @@ class _StatusLine extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final message = viewModel.message;
+    final activity = viewModel.assistantActivity;
     final (text, color) = switch (viewModel.status) {
+      _ when activity == AssistantActivity.speaking => (
+        'Asystent mówi…',
+        AppColors.ok,
+      ),
+      _ when activity == AssistantActivity.thinking => (
+        'Asystent myśli…',
+        AppColors.busy,
+      ),
       ConversationStatus.recording => (
-        'Słucham… mów normalnie, rób przerwy',
+        'Słucham… gdy skończysz, mikrofon sam się wyłączy',
         AppColors.primary,
       ),
       ConversationStatus.transcribing => (
@@ -304,19 +386,29 @@ class _StatusLine extends StatelessWidget {
     };
     return SizedBox(
       height: 40,
-      child: Center(
-        child: Semantics(
-          liveRegion: true,
-          child: Text(
-            text,
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
-              color: color,
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Flexible(
+            child: Semantics(
+              liveRegion: true,
+              child: Text(
+                text,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: color,
+                ),
+              ),
             ),
           ),
-        ),
+          if (activity != AssistantActivity.idle)
+            TextButton(
+              onPressed: viewModel.stopAnswer,
+              child: const Text('Przerwij'),
+            ),
+        ],
       ),
     );
   }
@@ -368,7 +460,11 @@ class _TalkButton extends StatelessWidget {
         ),
         const SizedBox(height: 8),
         Text(
-          recording ? 'Naciśnij, aby zakończyć' : 'Naciśnij i mów',
+          recording
+              ? 'Naciśnij, aby zakończyć'
+              : viewModel.assistantActivity == AssistantActivity.idle
+              ? 'Naciśnij i mów'
+              : 'Poczekaj, aż asystent skończy',
           style: const TextStyle(
             fontSize: 14,
             fontWeight: FontWeight.w600,
