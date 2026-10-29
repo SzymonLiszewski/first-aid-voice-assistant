@@ -32,7 +32,7 @@ A scenario has `id`, `title`, `trigger` (when to choose it), `level`, `start` an
 - `sources` – optional citations, see below;
 - `note` – where the step goes beyond the guideline, for reviewers.
 
-The server (`poc/server/app/knowledge/`) validates the files at start-up and refuses to start when a transition, action or (if source files are present) citation does not exist, or a step is unreachable. It puts the scenarios into the system prompt.
+The server (`poc/server/app/knowledge/`) validates the files at start-up and refuses to start when a transition, action or (if source files are present) citation does not exist, or a step is unreachable. It walks through a scenario one instruction at a time and shows the model only the current one.
 
 ## Sources
 

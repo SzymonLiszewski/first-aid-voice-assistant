@@ -7,12 +7,11 @@ import pytest
 import yaml
 from fastapi.testclient import TestClient
 
-from app.knowledge import KnowledgeError, compose_system_prompt, load_knowledge
-from app.knowledge.render import render_procedures
+from app.knowledge import KnowledgeError, load_knowledge, load_scenario_prompts
 from app.main import create_app
 
 KNOWLEDGE = Path("../../knowledge")
-PROMPT_TEMPLATE = Path("prompts/knowledge_v1.md")
+SCENARIO_PROMPTS = Path("prompts/scenario_v1.yaml")
 
 
 @pytest.fixture
@@ -54,12 +53,14 @@ def test_real_knowledge_base_is_valid() -> None:
 
 
 def test_bls_scenario_keeps_the_official_numbers() -> None:
-    text = render_procedures(load_knowledge(KNOWLEDGE))
+    kb = load_knowledge(KNOWLEDGE)
+    text = " ".join(u for sc in kb.scenarios for st in sc.steps for u in st.units)
 
     # ERC 2025 / PRR: 5-6 cm, 100-120 per minute, 30:2, 10 seconds, check response before call.
     assert "co najmniej pięciu, ale nie więcej niż sześciu centymetrów" in text
     assert "od stu do stu dwudziestu uciśnięć na minutę" in text
     assert "trzydzieści uciśnięć do dwóch oddechów" in text
+    assert "do pięciu uderzeń w plecy" in text
     assert "nie dłużej niż dziesięć sekund" in text
 
 
@@ -157,28 +158,44 @@ def test_handoff_to_unknown_scenario_is_rejected(kb_copy: Path) -> None:
         load_knowledge(kb_copy)
 
 
-def test_system_prompt_contains_base_prompt_and_procedures() -> None:
-    base = Path("prompts/system_v1.md").read_text(encoding="utf-8")
+def test_scenario_prompts_have_the_placeholders_the_dialogue_fills_in() -> None:
+    prompts = load_scenario_prompts(SCENARIO_PROMPTS)
 
-    prompt = compose_system_prompt(base, PROMPT_TEMPLATE, load_knowledge(KNOWLEDGE))
-
-    assert prompt.startswith(base.rstrip())
-    assert "SCENARIO adult-bls" in prompt
-    assert "{procedures}" not in prompt
-
-
-def test_template_without_placeholder_is_rejected(tmp_path: Path) -> None:
-    template = tmp_path / "t.md"
-    template.write_text("no placeholder", encoding="utf-8")
-
-    with pytest.raises(ValueError, match="must contain"):
-        compose_system_prompt("base", template, load_knowledge(KNOWLEDGE))
+    assert "{instruction}" in prompts.say
+    assert "{last}" in prompts.repeat
+    assert "{titles}" in prompts.idle
+    assert "{messages}" in prompts.route_scenario
+    assert "{options}" in prompts.route_scenario
+    assert "{assistant}" in prompts.route_step
+    assert "{user}" in prompts.route_step
+    assert "{options}" in prompts.route_step
 
 
-def test_model_receives_the_procedures_in_a_single_system_message() -> None:
+def test_system_prompt_has_the_safety_rules_and_no_whole_procedure() -> None:
     client = TestClient(create_app("configs/fake.yaml"))
 
-    prompt = client.app.state.system_prompt  # type: ignore[attr-defined]
+    prompt: str = client.app.state.system_prompt  # type: ignore[attr-defined]
 
-    assert "SCENARIO adult-choking" in prompt
-    assert "Zasady bezpieczeństwa" in prompt  # the safety rules are still there
+    assert "Zasady bezpieczeństwa" in prompt
+    assert "BIEŻĄCE ZADANIE" in prompt  # the rules that explain the per-turn task
+    assert "Delikatnie potrząśnij" not in prompt  # procedures reach the model one step at a time
+
+
+def test_knowledge_disabled_leaves_the_plain_system_prompt(tmp_path: Path) -> None:
+    config = tmp_path / "plain.yaml"
+    text = Path("configs/fake.yaml").read_text(encoding="utf-8")
+    config.write_text(text.replace("enabled: true", "enabled: false"), encoding="utf-8")
+
+    app = create_app(str(config))
+
+    assert app.state.knowledge is None
+    assert app.state.system_prompt == Path("prompts/system_v1.md").read_text(encoding="utf-8")
+
+
+def test_knowledge_needs_the_scenario_prompts_file(tmp_path: Path) -> None:
+    config = tmp_path / "broken.yaml"
+    text = Path("configs/fake.yaml").read_text(encoding="utf-8")
+    config.write_text(text.replace(", knowledge: prompts/scenario_v1.yaml", ""), encoding="utf-8")
+
+    with pytest.raises(ValueError, match="needs prompts.knowledge"):
+        create_app(str(config))

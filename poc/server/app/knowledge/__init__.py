@@ -1,5 +1,15 @@
+from app.knowledge.dialogue import KnowledgeRuntime, ScenarioDialogue, with_task
 from app.knowledge.loader import KnowledgeError, load_knowledge
 from app.knowledge.models import KnowledgeBase
-from app.knowledge.render import compose_system_prompt
+from app.knowledge.prompts import ScenarioPrompts, load_scenario_prompts
 
-__all__ = ["KnowledgeBase", "KnowledgeError", "compose_system_prompt", "load_knowledge"]
+__all__ = [
+    "KnowledgeBase",
+    "KnowledgeError",
+    "KnowledgeRuntime",
+    "ScenarioDialogue",
+    "ScenarioPrompts",
+    "load_knowledge",
+    "load_scenario_prompts",
+    "with_task",
+]

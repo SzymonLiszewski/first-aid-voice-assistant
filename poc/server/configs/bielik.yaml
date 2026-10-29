@@ -13,4 +13,4 @@ llm:
     temperature: 0.3
 rag: { enabled: false }
 knowledge: { enabled: true, path: ../../knowledge }   # scenarios from knowledge/ in the prompt
-prompts: { system: prompts/system_v1.md, knowledge: prompts/knowledge_v1.md }
+prompts: { system: prompts/system_v1.md, knowledge: prompts/scenario_v1.yaml }

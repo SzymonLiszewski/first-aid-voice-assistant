@@ -66,6 +66,11 @@ class Step(BaseModel):
     sources: list[SourceRef] = Field(default_factory=list)  # checked against sources/ if present
     note: str | None = None  # where the step goes beyond the guideline; for reviewers
 
+    @property
+    def units(self) -> list[str]:
+        """What the assistant says in this step, one item per turn: instructions, then the ask."""
+        return [*self.instructions, *([self.asks] if self.asks else [])]
+
 
 class Scenario(BaseModel):
     id: str

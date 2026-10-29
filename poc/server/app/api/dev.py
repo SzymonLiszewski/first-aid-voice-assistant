@@ -1,4 +1,7 @@
-"""Dev-only test endpoint: send a transcript, get the model's answer. Stateless, no history."""
+"""Dev-only test endpoint: send a transcript, get the model's answer.
+
+Stateless, no history: every request starts a scenario from the beginning.
+"""
 
 import logging
 import time
@@ -8,6 +11,7 @@ from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import HTMLResponse
 from pydantic import BaseModel, Field
 
+from app.knowledge import with_task
 from app.pipeline.prompt import build_prompt
 from app.providers.base import LLMDone, LLMOptions
 
@@ -33,10 +37,14 @@ async def dev_page() -> str:
 @router.post("/dev/chat")
 async def chat(req: ChatRequest, request: Request) -> ChatResponse:
     state = request.app.state
-    messages = build_prompt(state.system_prompt, [], req.text)
     started = time.perf_counter()
     answer = ""
     try:
+        system_prompt = state.system_prompt
+        if state.knowledge is not None:
+            task = await state.knowledge.dialogue(state.llm).begin_turn(req.text, [])
+            system_prompt = with_task(system_prompt, task)
+        messages = build_prompt(system_prompt, [], req.text)
         async for ev in state.llm.generate_stream(messages, LLMOptions()):
             if isinstance(ev, LLMDone):
                 answer = ev.text
