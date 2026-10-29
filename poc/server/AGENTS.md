@@ -2,9 +2,9 @@
 
 Project-wide rules (language, domain and safety, data, documentation) are in the root [`AGENTS.md`](../../AGENTS.md); this file adds the rules specific to the server. Run all commands from `poc/server/`.
 
-Voice assistant backend (ASR → LLM, with RAG as a disabled, optional stage). A modular monolith (FastAPI) plus open-source models in separate containers (Ollama/vLLM, faster-whisper server) or commercial APIs behind the same provider interfaces. For now there is no audio/ASR layer: the only way to talk to the model is the dev-only test endpoint `POST /dev/chat` (transcript in, answer out).
+Voice assistant backend (ASR → LLM, with RAG as a disabled, optional stage). A modular monolith (FastAPI) plus open-source models in separate containers (Ollama/vLLM, faster-whisper server) or commercial APIs behind the same provider interfaces. There is no audio/ASR layer on the server: the mobile app recognises speech and talks to the model over `WS /v1/chat` (streamed answer, cancelling, history sent with every question); the dev-only `POST /dev/chat` is for quick tests.
 
-Status: the LLM can be tested with ready-made transcripts (LiteLLM + fake providers, stateless single turns). Not yet: ASR/audio, conversation history, sessions, streaming transport.
+Status: streamed chat over a WebSocket for the mobile app (LiteLLM + fake providers; the app keeps the conversation). Not yet: ASR/audio, sessions on the server, event log, authentication.
 
 ## Safety in this part
 
@@ -17,7 +17,7 @@ With `DEV_MODE=true` the app serves a test page at `/dev` and `POST /dev/chat` (
 
 ## Directory map
 
-- `app/api/` – REST + dev test endpoint/page; `app/core/` – config, logging
+- `app/api/` – REST, the chat WebSocket (`ws.py`), dev test endpoint/page; `app/core/` – config, logging
 - `app/pipeline/` – prompt building (orchestration comes later)
 - `app/providers/` – interfaces (`base.py`), registry (`registry.py`), adapters in `asr/ llm/ embeddings/ tts/`
 - `app/rag/` – empty for now (planned: `Retriever` + `NullRetriever`)
@@ -30,7 +30,7 @@ With `DEV_MODE=true` the app serves a test page at `/dev` and `POST /dev/chat` (
 
 ```
 uv sync                                   # dependencies
-APP_CONFIG=configs/fake.yaml uv run uvicorn app.main:app --reload   # no model needed (PowerShell: $env:APP_CONFIG=...)
+APP_CONFIG=configs/fake.yaml uv run uvicorn app.main:app --reload   # no model needed: slow fixed Polish answer (PowerShell: $env:APP_CONFIG=...)
 uv run python scripts/chat_client.py "..."                         # terminal test client
 docker compose up --build                 # app + redis + Ollama (pulls the default model once)
 docker compose --profile local-asr up                              # + local ASR server
