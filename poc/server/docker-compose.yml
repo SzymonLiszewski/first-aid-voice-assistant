@@ -12,6 +12,7 @@ services:
     volumes:
       - ./configs:/app/configs
       - ./prompts:/app/prompts
+      - ../../knowledge:/knowledge:ro   # config path ../../knowledge resolves to it from /app
     depends_on:
       redis: { condition: service_started }
       llm-pull: { condition: service_completed_successfully }   # start once the model is ready

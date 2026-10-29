@@ -13,7 +13,7 @@ All commands below are run from `poc/server/`.
 - Commercial models behind the same provider interfaces (LiteLLM adapter).
 - API: `GET /health`, `GET /v1/providers`, `WS /v1/chat` (the mobile app's chat: the answer is streamed and can be cancelled; the app sends the conversation history with every question) and the dev-only `POST /dev/chat` for testing the LLM with ready-made transcripts.
 - No audio/ASR on the server: speech is recognised on the phone.
-- RAG is disabled (`rag.enabled: false`); Qdrant sits behind the `rag` profile.
+- The first-aid scenarios from `knowledge/` (adult BLS, choking) are put into the system prompt (`knowledge.enabled`); RAG is disabled (`rag.enabled: false`), Qdrant sits behind the `rag` profile.
 
 More: [docs/architecture.md](docs/architecture.md). Coding conventions: [docs/conventions.md](docs/conventions.md).
 
@@ -26,6 +26,7 @@ poc/server/
 │   ├── api/                  # REST endpoints, chat WebSocket (ws.py), dev-only test endpoint and page (static/)
 │   ├── core/                 # config loading (env + YAML)
 │   ├── pipeline/             # prompt building
+│   ├── knowledge/            # loads and validates knowledge/ (scenarios), renders it for the system prompt
 │   ├── providers/            # model adapters
 │   │   ├── base.py           # provider interfaces
 │   │   ├── registry.py       # provider name from config -> class

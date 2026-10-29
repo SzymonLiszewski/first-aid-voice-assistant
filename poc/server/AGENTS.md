@@ -18,10 +18,10 @@ With `DEV_MODE=true` the app serves a test page at `/dev` and `POST /dev/chat` (
 ## Directory map
 
 - `app/api/` – REST, the chat WebSocket (`ws.py`), dev test endpoint/page; `app/core/` – config, logging
-- `app/pipeline/` – prompt building (orchestration comes later)
+- `app/pipeline/` – prompt building (orchestration comes later); `app/knowledge/` – loads, validates and renders the scenarios of `knowledge/` into the system prompt
 - `app/providers/` – interfaces (`base.py`), registry (`registry.py`), adapters in `asr/ llm/ embeddings/ tts/`
 - `app/rag/` – empty for now (planned: `Retriever` + `NullRetriever`)
-- `configs/` – `base.yaml`, `experiments/`; `prompts/` – system prompts
+- `configs/` – `base.yaml`, `experiments/`; `prompts/` – system prompt and the template of the knowledge section
 - `tests/unit`, `tests/contract`
 - `docs/` – architecture and coding conventions of the server
 - Shared with other parts (repository root): `knowledge/`, `eval/`

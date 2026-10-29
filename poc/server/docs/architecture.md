@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | **Created** | 2026-10-26 |
-| **Version** | 0.2 |
+| **Version** | 0.3 |
 
 ## Purpose
 
@@ -27,6 +27,7 @@ request ──▶ │ api/  ──▶ pipeline/prompt.py ──▶ providers/reg
 | `app/api/ws.py` | `WS /v1/chat`: the mobile app's chat – streams the answer, cancels it on request (see below). |
 | `app/api/dev.py` | Dev-only `GET /dev` (test page) and `POST /dev/chat`, mounted only when `DEV_MODE=true`. |
 | `app/pipeline/prompt.py` | Builds the message list: system prompt + history + user text. |
+| `app/knowledge/` | Loads and validates `knowledge/` (`loader.py`, models in `models.py`) and renders the scenarios as text (`render.py`); `main.py` appends them to the system prompt at start-up. |
 | `app/providers/base.py` | Provider interfaces and data types (`Message`, `LLMOptions`, `LLMDelta`, `LLMDone`, `LLMProvider`). |
 | `app/providers/registry.py` | Maps the provider name from the config to a class (`@register_llm("<name>")`, `build_llm`). |
 | `app/providers/llm/` | LLM adapters: `litellm` (Ollama, vLLM, commercial APIs) and `fake` (tests, no model; `delay` imitates a slow model). |
@@ -52,6 +53,16 @@ Used by the mobile app. Messages are JSON objects with a `type`.
 3. Every `LLMDelta` is sent as `delta`; the final `LLMDone` as `done`. A model failure becomes `error`, so the app can say "call 112".
 4. A new `ask`, a `cancel` or a closed connection cancels the streaming task, which stops the model call.
 
+## Knowledge base in the prompt
+
+The scenarios (state machines in YAML, steps may cite their sources) are the assistant's only source of procedures; RAG is not needed for them.
+
+1. At start-up `main.py` calls `load_knowledge` (path from `knowledge.path`). It checks that every transition and action exists and that every step is reachable, and, if `knowledge/sources/` has files, that every cited source and section exists; otherwise the server does not start.
+2. `compose_system_prompt` renders all scenarios (`STEP`, `SAY`, `ASK`, `IF … -> GOTO/HANDOFF`, `END`) and inserts them into the template `prompts/knowledge_v1.md` (which explains the notation and the rules for using it), then appends the result to the system prompt. It stays one system message.
+3. The server keeps no scenario state: the model follows the current step from the conversation history the app sends. Tracking the step on the server (and the event log) comes with the analysis endpoint.
+
+All scenarios go into every prompt (about 11,000 characters); selecting only the relevant one is a later optimisation.
+
 ## Request flow (`POST /dev/chat`)
 
 1. `api/dev.py` validates the body (`{"text": "..."}`, 1–2000 characters).
@@ -62,6 +73,7 @@ Used by the mobile app. Messages are JSON objects with a `type`.
 ## Configuration
 
 - `configs/*.yaml` select the providers and their parameters (`APP_CONFIG` picks the file): `base.yaml` (Docker), `gemma.yaml` (app on the host, Gemma 3 1B in the Ollama container), `bielik.yaml` (app on the host, Bielik 4.5B v3 in the Ollama container), `fake.yaml` (no model, streams a fixed Polish answer word by word with a delay – for UI work and trying the app; tests swap in an echoing fake).
+- `knowledge: {enabled, path}` and `prompts.knowledge` turn on the scenarios from `knowledge/`; in Docker the folder is mounted read-only at `/knowledge`, which is where `../../knowledge` points from `/app`.
 - `.env` holds secrets and environment settings (`DEV_MODE`, API keys, `REDIS_URL`).
 - Experiments with other models go to `configs/experiments/`.
 
@@ -92,3 +104,4 @@ Used by the mobile app. Messages are JSON objects with a `type`.
 |---|---|---|
 | 0.1 | 2026-10-26 | First version, based on the existing code |
 | 0.2 | 2026-10-29 | `WS /v1/chat` with streamed answers, cancelling and history sent by the app; `gemma.yaml`, `bielik.yaml`; `fake.yaml` streams a fixed answer slowly |
+| 0.3 | 2026-10-29 | Knowledge base in the system prompt: `app/knowledge/` (loader, validation, rendering), `prompts/knowledge_v1.md`, `knowledge` config section |
