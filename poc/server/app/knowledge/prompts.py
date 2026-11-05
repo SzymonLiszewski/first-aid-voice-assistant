@@ -12,8 +12,11 @@ class ScenarioPrompts(BaseModel):
     repeat: str
     idle: str
     finished: str
+    interject: str
+    stuck: str
     route_scenario: str
     route_step: str
+    route_intent: str
 
 
 def load_scenario_prompts(path: str | Path) -> ScenarioPrompts:

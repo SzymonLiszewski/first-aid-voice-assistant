@@ -15,7 +15,7 @@ from typing import Annotated, Literal
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 from pydantic import BaseModel, Field, TypeAdapter, ValidationError
 
-from app.knowledge import ScenarioDialogue, with_task
+from app.knowledge import ScenarioDialogue
 from app.pipeline.prompt import build_prompt
 from app.providers.base import LLMDelta, LLMDone, LLMOptions, LLMProvider, Message
 
@@ -129,11 +129,10 @@ class _ChatSession:
         started = time.perf_counter()
         first_token_ms: int | None = None
         try:
-            system_prompt = self._system_prompt
+            task = None
             if self._dialogue is not None:
                 task = await self._dialogue.begin_turn(msg.text, history)
-                system_prompt = with_task(system_prompt, task)
-            messages = build_prompt(system_prompt, history, msg.text)
+            messages = build_prompt(self._system_prompt, history, msg.text, task)
             async for ev in self._llm.generate_stream(messages, LLMOptions()):
                 if isinstance(ev, LLMDelta):
                     if first_token_ms is None:

@@ -11,7 +11,6 @@ from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import HTMLResponse
 from pydantic import BaseModel, Field
 
-from app.knowledge import with_task
 from app.pipeline.prompt import build_prompt
 from app.providers.base import LLMDone, LLMOptions
 
@@ -40,11 +39,10 @@ async def chat(req: ChatRequest, request: Request) -> ChatResponse:
     started = time.perf_counter()
     answer = ""
     try:
-        system_prompt = state.system_prompt
+        task = None
         if state.knowledge is not None:
             task = await state.knowledge.dialogue(state.llm).begin_turn(req.text, [])
-            system_prompt = with_task(system_prompt, task)
-        messages = build_prompt(system_prompt, [], req.text)
+        messages = build_prompt(state.system_prompt, [], req.text, task)
         async for ev in state.llm.generate_stream(messages, LLMOptions()):
             if isinstance(ev, LLMDone):
                 answer = ev.text

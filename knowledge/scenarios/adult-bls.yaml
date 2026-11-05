@@ -1,12 +1,12 @@
 # Adult basic life support for a layperson (cardiac arrest: unresponsive, not breathing normally).
 # Steps follow the PRR step-by-step sheet and the ERC 2025 guideline; the order is: check safety
-# and response, call the emergency number, check breathing, fetch an AED, compressions (with
-# rescue breaths only for trained rescuers), AED. Wording is Polish and meant to be read aloud
+# and response, call the emergency number, check breathing, compressions (with
+# rescue breaths only for trained rescuers). AED steps are left out for now. Wording is Polish and meant to be read aloud
 # (numbers in words); ids, structure and comments are English.
 #
 # `instructions` are given one at a time. A step without `transitions` ends the scenario.
 id: adult-bls
-title: Resuscytacja krążeniowo-oddechowa osoby dorosłej (RKO) z użyciem AED
+title: Resuscytacja krążeniowo-oddechowa osoby dorosłej (RKO)
 trigger: >-
   Dorosły poszkodowany nie reaguje (nie odpowiada, nie rusza się) albo nie oddycha lub oddycha
   nieprawidłowo.
@@ -60,19 +60,33 @@ steps:
 
   - id: call_emergency
     actions: [CALL_EMERGENCY]
+    note: >-
+      If the rescuer cannot call (no signal, no phone), the scenario goes straight on to the
+      breathing check and CPR and never sends the rescuer away from the person. ERC 2025
+      ("Alerting the ambulance service") would have a lone rescuer shout for help and, if no one
+      comes, leave the person to call; the project deliberately does not give that instruction.
+      Needs medical review.
     instructions:
       - Jeśli ktoś jest z Tobą, poproś, żeby zadzwonił pod sto dwanaście. Jeśli jesteś sam, zadzwoń sam.
       - Włącz w telefonie tryb głośnomówiący, żeby móc zacząć RKO w trakcie rozmowy z dyspozytorem.
       - Jeśli to możliwe, zostań z poszkodowanym.
     transitions:
-      - when: wezwano pomoc (ktoś dzwoni albo rozmówca rozmawia z dyspozytorem)
+      - when: >-
+          wezwano pomoc (ktoś dzwoni, rozmówca rozmawia z dyspozytorem albo czeka, aż dyspozytor
+          odbierze)
         goto: check_breathing
+      - when: rozmówca nie może zadzwonić (brak zasięgu lub sieci, brak telefonu)
+        goto: check_breathing
+        interrupt: true
     sources:
       - {source: prr-bls-algorithm-2025, section: "Podstawowe zabiegi resuscytacyjne krok po kroku – WEZWIJ SŁUŻBY RATUNKOWE"}
       - {source: erc-2025-bls, section: Alerting the ambulance service}
 
   - id: check_breathing
     actions: [OPEN_AIRWAY, CHECK_BREATHING]
+    note: >-
+      AED steps (sending someone for the AED, using it when it arrives) are deliberately left out
+      of this draft: the assistant goes straight to compressions. Needs medical review.
     instructions:
       - Ułóż poszkodowanego na plecach.
       - Jedną rękę połóż na jego czole, a opuszki palców drugiej pod brodą. Delikatnie odegnij głowę do tyłu i unieś brodę.
@@ -82,7 +96,7 @@ steps:
       - when: >-
           nie oddycha, oddycha nieprawidłowo (prawie wcale, nieregularnie, powoli, głośne
           westchnienia) albo rozmówca nie ma pewności
-        goto: fetch_aed
+        goto: chest_compressions
       - when: oddycha prawidłowo
         goto: breathing_normally
     sources:
@@ -99,17 +113,6 @@ steps:
     transitions: []
     sources:
       - {source: erc-2025-bls, section: Recognising cardiac arrest}
-
-  - id: fetch_aed
-    actions: [SEND_FOR_AED]
-    instructions:
-      - Wyślij kogoś, żeby znalazł i przyniósł AED, czyli automatyczny defibrylator, jeśli jest dostępny. Każdy może go użyć, nawet bez szkolenia.
-      - Jeśli jesteś sam, idź po AED tylko wtedy, gdy możesz je przynieść i uruchomić w ciągu jednej minuty. W przeciwnym razie od razu zacznij RKO.
-    transitions:
-      - when: ktoś poszedł po AED albo rozmówca zaczyna RKO od razu
-        goto: chest_compressions
-    sources:
-      - {source: prr-bls-algorithm-2025, section: "Podstawowe zabiegi resuscytacyjne krok po kroku – WYŚLIJ PO AED"}
 
   - id: chest_compressions
     actions: [CHEST_COMPRESSIONS]
@@ -136,8 +139,6 @@ steps:
       - Prowadź RKO wyłącznie z uciskaniem klatki piersiowej, czyli uciskaj bez przerw, w tempie od stu do stu dwudziestu uciśnięć na minutę.
       - Kontynuuj RKO do czasu przybycia pogotowia. Rzadko samo RKO przywraca pracę serca, więc nie przerywaj, chyba że masz pewność, że krążenie powróciło.
     transitions:
-      - when: AED jest już na miejscu
-        goto: aed
       - when: ratownik albo lekarz każe przestać, poszkodowany w oczywisty sposób odzyskuje przytomność (porusza się, otwiera oczy, prawidłowo oddycha) albo rozmówca jest zbyt zmęczony
         goto: end_cpr
     sources:
@@ -151,8 +152,6 @@ steps:
     transitions:
       - when: wykonano trzydzieści uciśnięć
         goto: rescue_breaths
-      - when: AED jest już na miejscu
-        goto: aed
       - when: ratownik albo lekarz każe przestać, poszkodowany w oczywisty sposób odzyskuje przytomność (porusza się, otwiera oczy, prawidłowo oddycha) albo rozmówca jest zbyt zmęczony
         goto: end_cpr
     sources:
@@ -176,22 +175,6 @@ steps:
     sources:
       - {source: prr-bls-algorithm-2025, section: "Podstawowe zabiegi resuscytacyjne krok po kroku – POŁĄCZ UCIŚNIĘCIA KLATKI PIERSIOWEJ Z ODDECHAMI RATOWNICZYMI"}
       - {source: erc-2025-bls, section: Rescue breaths}
-
-  - id: aed
-    actions: [AED_ATTACH, AED_SHOCK]
-    instructions:
-      - Włącz AED i przyklej elektrody na odsłoniętą klatkę piersiową poszkodowanego, w miejscach pokazanych na elektrodach. Jeśli jest z Tobą druga osoba, niech w tym czasie kontynuuje RKO.
-      - Postępuj zgodnie z poleceniami głosowymi i wizualnymi AED. Gdy AED analizuje rytm serca, nikt nie może dotykać poszkodowanego.
-      - Jeśli AED zaleca defibrylację, upewnij się, że ani Ty, ani nikt inny nie dotyka poszkodowanego, i naciśnij przycisk, jeśli AED o to poprosi.
-      - Zaraz potem wróć do RKO zgodnie z poleceniami AED. Jeśli defibrylacja nie jest zalecana, też natychmiast wróć do RKO.
-    transitions:
-      - when: wracamy do RKO, a rozmówca potrafi wykonywać oddechy ratownicze
-        goto: compressions_30_2
-      - when: wracamy do RKO, a rozmówca nie potrafi wykonywać oddechów ratowniczych
-        goto: compressions_only
-    sources:
-      - {source: prr-bls-algorithm-2025, section: "Podstawowe zabiegi resuscytacyjne krok po kroku – GDY AED ZOSTANIE DOSTARCZONE"}
-      - {source: erc-2025-bls, section: Using an Automated External Defibrillator (AED)}
 
   - id: end_cpr
     note: >-

@@ -49,6 +49,9 @@ class Transition(BaseModel):
     when: str
     goto: str | None = None
     handoff: str | None = Field(default=None, pattern=r"^[\w-]+/[\w-]+$")  # scenario/step
+    # A branch for an obstacle (e.g. no phone signal) that may be taken in the middle of a step,
+    # before all its instructions were said. Other transitions wait until the step is done.
+    interrupt: bool = False
 
     @model_validator(mode="after")
     def _exactly_one_target(self) -> "Transition":

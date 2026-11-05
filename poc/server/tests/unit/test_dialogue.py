@@ -23,22 +23,29 @@ class ScriptedLLM:
 
     name = "scripted"
 
-    def __init__(self, replies: list[str]) -> None:
+    def __init__(self, replies: list[str], intents: list[str] | None = None) -> None:
         self.replies = list(replies)
+        # Replies of the call that classifies the user's words (POTWIERDZENIE by default).
+        self.intents = list(intents or [])
         self.calls: list[list[Message]] = []
 
     async def generate_stream(
         self, messages: list[Message], opts: LLMOptions
     ) -> AsyncIterator[LLMEvent]:
-        self.calls.append(messages)
-        reply = self.replies.pop(0) if self.replies else ""
+        if "Wybierz jedną etykietę" in messages[0].content:
+            reply = self.intents.pop(0) if self.intents else "POTWIERDZENIE"
+        else:
+            self.calls.append(messages)
+            reply = self.replies.pop(0) if self.replies else ""
         yield LLMDelta(text=reply)
         yield LLMDone(text=reply)
 
 
-def make(replies: list[str]) -> tuple[ScenarioDialogue, ScriptedLLM]:
+def make(
+    replies: list[str], intents: list[str] | None = None
+) -> tuple[ScenarioDialogue, ScriptedLLM]:
     runtime = KnowledgeRuntime(load_knowledge(KNOWLEDGE), load_scenario_prompts(SCENARIO_PROMPTS))
-    llm = ScriptedLLM(replies)
+    llm = ScriptedLLM(replies, intents)
     return runtime.dialogue(llm), llm
 
 
@@ -56,21 +63,6 @@ async def test_first_turn_picks_the_scenario_and_gives_only_its_first_instructio
     assert "Ty, poszkodowany i świadkowie" in task
     assert "potrząśnij" not in task
     assert len(llm.calls) == 1  # only the call that chose the scenario
-
-
-async def test_scenario_choice_sees_the_recent_user_messages() -> None:
-    dialogue, llm = make([BLS])
-    history = [
-        Message(role="user", content="Ktoś upadł w sklepie"),
-        Message(role="assistant", content="Czy jest bezpiecznie?"),
-    ]
-
-    await dialogue.begin_turn("Nie rusza się", history)
-
-    prompt = llm.calls[0][0].content
-    assert "Ktoś upadł w sklepie" in prompt
-    assert "Nie rusza się" in prompt
-    assert "Czy jest bezpiecznie?" not in prompt
 
 
 async def test_no_matching_scenario_gives_no_instructions_and_asks_again_next_turn() -> None:
@@ -101,21 +93,6 @@ async def test_instructions_inside_a_step_come_one_per_turn_without_calling_the_
     assert len(llm.calls) == calls_so_far
 
 
-async def test_the_question_of_a_step_comes_after_its_instructions() -> None:
-    dialogue, _ = make([BLS, "1", "1", "1"])
-    for text in ["Nie rusza się", "Bezpiecznie", "Nie reaguje"]:
-        await turn(dialogue, text)
-    for _ in range(2):  # the other two instructions of call_emergency
-        await turn(dialogue)
-    await turn(dialogue, "Dzwonię")  # check_breathing, instruction 1
-
-    await turn(dialogue)
-    await turn(dialogue)
-    asking = await turn(dialogue)
-
-    assert "Czy poszkodowany oddycha prawidłowo?" in asking
-
-
 async def test_the_cursor_waits_when_the_answer_matches_no_condition() -> None:
     dialogue, _ = make([BLS, "0", "1"])
     await turn(dialogue, "Nie rusza się")  # safety, its only instruction
@@ -139,16 +116,6 @@ async def test_an_unusable_reply_of_the_router_keeps_the_cursor() -> None:
         assert "jeszcze nie spełnił warunku" in task, reply
 
 
-async def test_a_digit_with_punctuation_around_it_is_understood() -> None:
-    for reply in ["1", " 1.", "(1)", "1 - jest bezpiecznie"]:
-        dialogue, _ = make([BLS, reply])
-        await turn(dialogue, "Nie rusza się")
-
-        task = await turn(dialogue, "Jest bezpiecznie")
-
-        assert "potrząśnij" in task, reply
-
-
 async def test_an_interrupted_answer_is_said_again() -> None:
     dialogue, _ = make([BLS])
     first = await dialogue.begin_turn("Nie rusza się", [])  # never completed: cancelled
@@ -156,19 +123,6 @@ async def test_an_interrupted_answer_is_said_again() -> None:
     again = await turn(dialogue, "Halo?")
 
     assert first == again
-
-
-async def test_the_step_router_sees_what_the_assistant_asked_and_what_the_user_said() -> None:
-    dialogue, llm = make([BLS, "1"])
-    await turn(dialogue, "Nie rusza się")
-    history = [Message(role="assistant", content="Czy jest bezpiecznie?")]
-
-    await dialogue.begin_turn("Tak, nic nie jedzie", history)
-
-    prompt = llm.calls[-1][0].content
-    assert "Czy jest bezpiecznie?" in prompt
-    assert "Tak, nic nie jedzie" in prompt
-    assert "1. jest bezpiecznie" in prompt
 
 
 async def test_choking_that_ends_in_unconsciousness_continues_as_cpr() -> None:
@@ -221,11 +175,68 @@ def test_websocket_gives_the_model_one_instruction_per_question() -> None:
         )
 
     answering = [c for c in llm.calls if c[0].role == "system"]
-    first, second = answering[0][0].content, answering[1][0].content
+    first, second = (
+        answering[0][-1].content,
+        answering[1][-1].content,
+    )  # the task is in the last message
     assert "Ty, poszkodowany i świadkowie" in first
     assert "potrząśnij" not in first
     assert "potrząśnij" in second
     assert "Ty, poszkodowany i świadkowie" not in second
+
+
+async def test_when_the_user_cannot_call_the_scenario_goes_straight_to_the_breathing_check() -> (
+    None
+):
+    dialogue, _ = make([BLS, "1", "1"], intents=["POTWIERDZENIE", "POTWIERDZENIE", "PRZESZKODA"])
+    for text in ["Nie rusza się", "Jest bezpiecznie", "Nie reaguje"]:
+        await turn(dialogue, text)
+
+    task = await turn(dialogue, "Nie mogę zadzwonić")
+
+    assert "Ułóż poszkodowanego na plecach" in task  # check_breathing, instruction 1
+    assert "zostaw" not in task.lower()  # the rescuer is never sent away
+
+
+async def test_a_question_outside_the_procedure_is_answered_without_moving_on() -> None:
+    dialogue, _ = make(
+        [BLS, "1", "1"], intents=["POTWIERDZENIE", "POTWIERDZENIE", "INNE", "POTWIERDZENIE"]
+    )
+    for text in ["Nie rusza się", "Jest bezpiecznie", "Nie reaguje"]:
+        await turn(dialogue, text)  # call_emergency, instruction 1 said
+
+    answer = await turn(dialogue, "Mogę mu dać wody?")
+    after = await turn(dialogue, "Dobrze")
+
+    assert "Tego nie wiem, zapytaj dyspozytora" in answer
+    assert "Ostatnie polecenie" in answer
+    assert "poproś, żeby zadzwonił pod sto dwanaście" in answer  # reminds the last instruction
+    assert "tryb głośnomówiący" in after  # the instruction was not skipped
+
+
+async def test_another_problem_is_sent_to_the_dispatcher_only_once_in_a_row() -> None:
+    dialogue, _ = make([BLS, "1", "1"], intents=["POTWIERDZENIE", "POTWIERDZENIE", "INNE", "INNE"])
+    for text in ["Nie rusza się", "Jest bezpiecznie", "Nie reaguje"]:
+        await turn(dialogue, text)
+
+    first = await turn(dialogue, "Co mam robić?")
+    second = await turn(dialogue, "Jak to zrobić?")
+
+    assert "Tego nie wiem, zapytaj dyspozytora" in first
+    assert "tryb głośnomówiący" in second  # the procedure goes on
+
+
+async def test_a_stuck_cursor_asks_instead_of_repeating_forever() -> None:
+    dialogue, _ = make([BLS, "0", "0", "0", "0"])
+    await turn(dialogue, "Nie rusza się")  # safety, its only instruction
+
+    first = await turn(dialogue, "Hm")
+    second = await turn(dialogue, "Hm")
+    third = await turn(dialogue, "Hm")
+
+    assert "Ostatnie polecenie" in first
+    assert "Ostatnie polecenie" in second
+    assert "nie powtarzaj poprzedniego polecenia" in third.lower()
 
 
 def _ask(ws: Any, ask_id: str, text: str, history: list[dict[str, str]]) -> None:

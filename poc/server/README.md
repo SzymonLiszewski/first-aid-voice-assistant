@@ -62,7 +62,7 @@ The knowledge base (`knowledge/`) and the evaluation (`eval/`) live at the repos
 docker compose up --build
 ```
 
-This starts the app, Redis and Ollama and downloads the model named in the config on the first run; the app starts once the model is ready, so the first start takes a few minutes. The default config is set in `docker-compose.yml` (`APP_CONFIG`), currently `configs/experiments/bielik-7b-compose.yaml` (Bielik 7B v0.1). **That model is built from a Modelfile, so plain `docker compose up` does not work for it: follow "Models built from a Modelfile" below.** For a start with a model from the Ollama library use e.g. `APP_CONFIG=configs/base.yaml` (`gemma3:1b`, ~0.8 GB) or `configs/experiments/qwen25-7b-compose.yaml`. `.env` is optional (`cp .env.example .env` to change settings).
+This starts the app, Redis and Ollama and downloads the model named in the config on the first run; the app starts once the model is ready, so the first start takes a few minutes. The default config is set in `docker-compose.yml` (`APP_CONFIG`), currently `configs/experiments/qwen25-7b-compose.yaml` (Qwen2.5 7B Instruct Q4_K_M, ~4.7 GB; with a 4 GB GPU it runs mostly on the CPU, use the GPU override below). For a light start use `APP_CONFIG=configs/base.yaml` (`gemma3:1b`, ~0.8 GB). Configs of models built from a Modelfile (Bielik 7B v0.1) need a different command, see "Models built from a Modelfile" below. `.env` is optional (`cp .env.example .env` to change settings).
 
 Then open **http://localhost:8000/dev**, paste a transcript and send it. Or use the terminal client:
 
